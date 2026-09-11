@@ -19,7 +19,7 @@ export default function AdminPanel() {
       setAbaAtiva('pedidos')
       return
     }
-    const { data, error } = await supabase.from('pessoas').select('*').eq('tipo', 'vendedor').eq('senha', loginSenha).or(`telefone.eq.${loginUser},nome.eq.${loginUser}`).single()
+    const { data } = await supabase.from('pessoas').select('*').eq('tipo', 'vendedor').eq('senha', loginSenha).or(`telefone.eq.${loginUser},nome.eq.${loginUser}`).single()
     if (data) {
       setUsuarioLogado(data)
       setAbaAtiva('pedidos')
@@ -38,9 +38,11 @@ export default function AdminPanel() {
   const [listaVendedores, setListaVendedores] = useState<any[]>([])
   const [listaClientes, setListaClientes] = useState<any[]>([])
   const [listaPedidos, setListaPedidos] = useState<any[]>([])
+  const [listaPagamentos, setListaPagamentos] = useState<any[]>([])
   const [desbloqueados, setDesbloqueados] = useState<number[]>([])
 
   // Estados Produto, Banner, Categoria
+  const [idProdutoEdicao, setIdProdutoEdicao] = useState<number | null>(null)
   const [nome, setNome] = useState(''); const [preco, setPreco] = useState(''); const [categoria, setCategoria] = useState(''); const [descricao, setDescricao] = useState(''); const [imagemProduto, setImagemProduto] = useState<File | null>(null); const [carregandoProduto, setCarregandoProduto] = useState(false); const [gerandoIA, setGerandoIA] = useState(false)
   const [tituloBanner, setTituloBanner] = useState(''); const [imagemBanner, setImagemBanner] = useState<File | null>(null); const [carregandoBanner, setCarregandoBanner] = useState(false)
   const [novaCategoria, setNovaCategoria] = useState(''); const [carregandoCategoria, setCarregandoCategoria] = useState(false)
@@ -49,35 +51,30 @@ export default function AdminPanel() {
   const [nomeVendedor, setNomeVendedor] = useState(''); const [telefoneVendedor, setTelefoneVendedor] = useState(''); const [comissaoVendedor, setComissaoVendedor] = useState(''); const [senhaVendedor, setSenhaVendedor] = useState(''); const [idVendedorEdicao, setIdVendedorEdicao] = useState<number | null>(null); const [carregandoVendedor, setCarregandoVendedor] = useState(false)
 
   // Estados Clientes (CRM)
-  const [mostrarFiltrosCli, setMostrarFiltrosCli] = useState(false)
-  const [mostrarFormCli, setMostrarFormCli] = useState(false)
-  const [idCliEdicao, setIdCliEdicao] = useState<number | null>(null)
+  const [mostrarFiltrosCli, setMostrarFiltrosCli] = useState(false); const [mostrarFormCli, setMostrarFormCli] = useState(false); const [idCliEdicao, setIdCliEdicao] = useState<number | null>(null)
   const [cliTipoPessoa, setCliTipoPessoa] = useState('Jurídica'); const [cliRazao, setCliRazao] = useState(''); const [cliFantasia, setCliFantasia] = useState(''); const [cliCpfCnpj, setCliCpfCnpj] = useState(''); const [cliTelefone, setCliTelefone] = useState(''); const [cliCidade, setCliCidade] = useState(''); const [cliEstado, setCliEstado] = useState(''); const [cliRepresentante, setCliRepresentante] = useState(''); const [cliStatusAtivo, setCliStatusAtivo] = useState(true)
   const [filtroCliNome, setFiltroCliNome] = useState(''); const [filtroCliCpf, setFiltroCliCpf] = useState(''); const [filtroCliRep, setFiltroCliRep] = useState(''); const [filtroCliCidade, setFiltroCliCidade] = useState(''); const [filtroCliEstado, setFiltroCliEstado] = useState(''); const [filtroCliStatus, setFiltroCliStatus] = useState('')
+
+  // Estados Pagamentos (NOVO)
+  const [idPagamentoEdicao, setIdPagamentoEdicao] = useState<number | null>(null)
+  const [pagTitulo, setPagTitulo] = useState('')
+  const [pagDescricao, setPagDescricao] = useState('')
+  const [pagValorMinimo, setPagValorMinimo] = useState('')
+  const [pagOrdem, setPagOrdem] = useState('1')
+  const [pagStatusAtivo, setPagStatusAtivo] = useState(true)
+  const [carregandoPagamento, setCarregandoPagamento] = useState(false)
 
   // --- CARREGAMENTO DE DADOS ---
   async function carregarDados() {
     if (!usuarioLogado) return
     const { data: cat } = await supabase.from('categorias').select('*').order('nome')
     if (cat) { setCategoriasCadastradas(cat); if (cat.length > 0 && !categoria) setCategoria(cat[0].nome) }
-    
-    const { data: prod } = await supabase.from('produtos').select('*').order('id', { ascending: false })
-    if (prod) setListaProdutos(prod)
-    
-    const { data: ban } = await supabase.from('banners').select('*').order('id', { ascending: false })
-    if (ban) setListaBanners(ban)
-
-    const { data: vend } = await supabase.from('pessoas').select('*').eq('tipo', 'vendedor').order('nome')
-    if (vend) setListaVendedores(usuarioLogado.tipo === 'admin' ? vend : vend.filter(v => v.id === usuarioLogado.id))
-
-    const { data: cli } = await supabase.from('pessoas').select('*').eq('tipo', 'cliente').order('id', { ascending: false })
-    if (cli) {
-      if (usuarioLogado.tipo === 'admin') setListaClientes(cli)
-      else setListaClientes(cli.filter(c => c.representante_id === usuarioLogado.id))
-    }
-
-    const { data: ped } = await supabase.from('pedidos').select('*').order('id', { ascending: false })
-    if (ped) setListaPedidos(usuarioLogado.tipo === 'admin' ? ped : ped.filter(p => p.vendedor_id === usuarioLogado.id))
+    const { data: prod } = await supabase.from('produtos').select('*').order('id', { ascending: false }); if (prod) setListaProdutos(prod)
+    const { data: ban } = await supabase.from('banners').select('*').order('id', { ascending: false }); if (ban) setListaBanners(ban)
+    const { data: vend } = await supabase.from('pessoas').select('*').eq('tipo', 'vendedor').order('nome'); if (vend) setListaVendedores(usuarioLogado.tipo === 'admin' ? vend : vend.filter(v => v.id === usuarioLogado.id))
+    const { data: cli } = await supabase.from('pessoas').select('*').eq('tipo', 'cliente').order('id', { ascending: false }); if (cli) setListaClientes(usuarioLogado.tipo === 'admin' ? cli : cli.filter(c => c.representante_id === usuarioLogado.id))
+    const { data: ped } = await supabase.from('pedidos').select('*').order('id', { ascending: false }); if (ped) setListaPedidos(usuarioLogado.tipo === 'admin' ? ped : ped.filter(p => p.vendedor_id === usuarioLogado.id))
+    const { data: pag } = await supabase.from('formas_pagamento').select('*').order('ordem', { ascending: true }); if (pag) setListaPagamentos(pag)
   }
 
   useEffect(() => { carregarDados() }, [usuarioLogado])
@@ -101,11 +98,21 @@ export default function AdminPanel() {
     setGerandoIA(false)
   }
 
+  const iniciarEdicaoProduto = (p: any) => { setIdProdutoEdicao(p.id); setNome(p.nome); setPreco(p.preco.toString()); setCategoria(p.categoria); setDescricao(p.descricao || ''); setImagemProduto(null); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const cancelarEdicaoProduto = () => { setIdProdutoEdicao(null); setNome(''); setPreco(''); setDescricao(''); setImagemProduto(null) }
+
   const handleSalvarProduto = async (e: React.FormEvent) => {
     e.preventDefault(); setCarregandoProduto(true); const precoNumerico = parseFloat(preco.replace(',', '.')); let imagemUrl = ''
     if (imagemProduto) { const ext = imagemProduto.name.split('.').pop(); const nomeArq = `produto_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemProduto); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq); imagemUrl = data.publicUrl }
-    const { error } = await supabase.from('produtos').insert([{ nome, preco: precoNumerico, imagem_url: imagemUrl, categoria, descricao }])
-    if (!error) { setMensagem('Produto salvo!'); setNome(''); setPreco(''); setDescricao(''); setImagemProduto(null); carregarDados() }
+    if (idProdutoEdicao) {
+      const payload: any = { nome, preco: precoNumerico, categoria, descricao }
+      if (imagemUrl) payload.imagem_url = imagemUrl
+      const { error } = await supabase.from('produtos').update(payload).eq('id', idProdutoEdicao)
+      if (!error) { setMensagem('Produto atualizado!'); cancelarEdicaoProduto(); carregarDados() }
+    } else {
+      const { error } = await supabase.from('produtos').insert([{ nome, preco: precoNumerico, imagem_url: imagemUrl, categoria, descricao }])
+      if (!error) { setMensagem('Produto salvo!'); cancelarEdicaoProduto(); carregarDados() }
+    }
     setCarregandoProduto(false)
   }
 
@@ -137,17 +144,39 @@ export default function AdminPanel() {
     setCarregandoVendedor(false)
   }
 
+  // --- FUNÇÕES DE PAGAMENTO (NOVO) ---
+  const iniciarEdicaoPagamento = (pag: any) => {
+    setIdPagamentoEdicao(pag.id); setPagTitulo(pag.titulo); setPagDescricao(pag.descricao || ''); setPagValorMinimo(pag.valor_minimo ? pag.valor_minimo.toString() : ''); setPagOrdem(pag.ordem.toString()); setPagStatusAtivo(pag.status_ativo); window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const cancelarEdicaoPagamento = () => {
+    setIdPagamentoEdicao(null); setPagTitulo(''); setPagDescricao(''); setPagValorMinimo(''); setPagOrdem('1'); setPagStatusAtivo(true)
+  }
+
+  const handleSalvarPagamento = async (e: React.FormEvent) => {
+    e.preventDefault(); setCarregandoPagamento(true)
+    const valorMinimoNum = pagValorMinimo ? parseFloat(pagValorMinimo.replace(',', '.')) : 0
+    const ordemNum = parseInt(pagOrdem) || 1
+
+    const payload = { titulo: pagTitulo, descricao: pagDescricao, valor_minimo: valorMinimoNum, ordem: ordemNum, status_ativo: pagStatusAtivo }
+
+    if (idPagamentoEdicao) {
+      const { error } = await supabase.from('formas_pagamento').update(payload).eq('id', idPagamentoEdicao)
+      if (!error) { setMensagem('Forma de Pagamento atualizada!'); cancelarEdicaoPagamento(); carregarDados() }
+    } else {
+      const { error } = await supabase.from('formas_pagamento').insert([payload])
+      if (!error) { setMensagem('Forma de Pagamento cadastrada!'); cancelarEdicaoPagamento(); carregarDados() }
+    }
+    setCarregandoPagamento(false)
+  }
+
   // --- FUNÇÕES DE CLIENTES (CRM) ---
   const limparFormCli = () => { setIdCliEdicao(null); setCliRazao(''); setCliFantasia(''); setCliCpfCnpj(''); setCliTelefone(''); setCliCidade(''); setCliEstado(''); setCliRepresentante(''); setCliStatusAtivo(true); setCliTipoPessoa('Jurídica') }
   const iniciarEdicaoCliente = (c: any) => { setIdCliEdicao(c.id); setCliRazao(c.nome); setCliFantasia(c.nome_fantasia || ''); setCliCpfCnpj(c.cpf_cnpj || ''); setCliTelefone(c.telefone || ''); setCliCidade(c.cidade || ''); setCliEstado(c.estado || ''); setCliRepresentante(c.representante_id ? c.representante_id.toString() : ''); setCliStatusAtivo(c.status_ativo); setCliTipoPessoa(c.tipo_pessoa || 'Física'); setMostrarFormCli(true); setMostrarFiltrosCli(false) }
 
   const handleSalvarCliente = async (e: React.FormEvent) => {
     e.preventDefault()
-    const payload = {
-      nome: cliRazao, nome_fantasia: cliFantasia, cpf_cnpj: cliCpfCnpj, telefone: cliTelefone,
-      cidade: cliCidade, estado: cliEstado, tipo_pessoa: cliTipoPessoa, status_ativo: cliStatusAtivo,
-      representante_id: cliRepresentante ? parseInt(cliRepresentante) : null, tipo: 'cliente'
-    }
+    const payload = { nome: cliRazao, nome_fantasia: cliFantasia, cpf_cnpj: cliCpfCnpj, telefone: cliTelefone, cidade: cliCidade, estado: cliEstado, tipo_pessoa: cliTipoPessoa, status_ativo: cliStatusAtivo, representante_id: cliRepresentante ? parseInt(cliRepresentante) : null, tipo: 'cliente' }
     if (idCliEdicao) {
       const { error } = await supabase.from('pessoas').update(payload).eq('id', idCliEdicao)
       if (!error) { setMensagem('Cliente atualizado!'); limparFormCli(); setMostrarFormCli(false); carregarDados() }
@@ -202,6 +231,7 @@ export default function AdminPanel() {
             <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
               <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Vendedor</h3>
               <p style="margin: 5px 0;"><strong>Responsável:</strong> ${vendedor?.nome || 'Não informado'}</p>
+              <p style="margin: 5px 0;"><strong>Pagamento:</strong> ${pedido.forma_pagamento || '-'}</p>
               <p style="margin: 5px 0;"><strong>Status:</strong> ${pedido.status}</p>
             </div>
           </div>
@@ -309,6 +339,7 @@ export default function AdminPanel() {
               <button onClick={() => setAbaAtiva('banner')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'banner' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>Banners</button>
               <button onClick={() => setAbaAtiva('categoria')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'categoria' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>Categorias</button>
               <button onClick={() => setAbaAtiva('vendedor')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'vendedor' ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-500 hover:bg-gray-50'}`}>Vendedores</button>
+              <button onClick={() => setAbaAtiva('pagamentos')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'pagamentos' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>Pagamentos</button>
             </>
           )}
           <button onClick={() => setAbaAtiva('clientes')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'clientes' ? 'border-b-2 border-teal-500 text-teal-600' : 'text-gray-500 hover:bg-gray-50'}`}>Clientes</button>
@@ -318,37 +349,43 @@ export default function AdminPanel() {
 
         {/* --- ABA PRODUTOS --- */}
         {abaAtiva === 'produto' && usuarioLogado.tipo === 'admin' && (
-          <div className="max-w-2xl mx-auto">
-            <form onSubmit={handleSalvarProduto} className="space-y-4 mb-8">
-              <div><label className="block text-sm font-medium mb-1">Nome</label><input type="text" required value={nome} onChange={(e) => setNome(e.target.value)} className="w-full p-2 border rounded-md" /></div>
+          <div>
+            <form onSubmit={handleSalvarProduto} className={`space-y-4 mb-8 p-4 rounded-xl border ${idProdutoEdicao ? 'bg-blue-50/30 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+              {idProdutoEdicao && <div className="text-blue-600 font-bold text-sm mb-2">Editando Produto</div>}
+              <div><label className="block text-sm font-medium mb-1">Nome</label><input type="text" required value={nome} onChange={(e) => setNome(e.target.value)} className="w-full p-2 border rounded-md bg-white" /></div>
               <div className="flex gap-4">
-                <div className="w-1/2"><label className="block text-sm font-medium mb-1">Preço (R$)</label><input type="text" required value={preco} onChange={(e) => setPreco(e.target.value)} className="w-full p-2 border rounded-md" /></div>
-                <div className="w-1/2">
-                  <label className="block text-sm font-medium mb-1">Categoria</label>
-                  <select required value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full p-2 border rounded-md bg-white">
-                    {categoriasCadastradas.map(cat => <option key={cat.id} value={cat.nome}>{cat.nome}</option>)}
-                  </select>
-                </div>
+                <div className="w-1/2"><label className="block text-sm font-medium mb-1">Preço (R$)</label><input type="text" required value={preco} onChange={(e) => setPreco(e.target.value)} className="w-full p-2 border rounded-md bg-white" /></div>
+                <div className="w-1/2"><label className="block text-sm font-medium mb-1">Categoria</label><select required value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full p-2 border rounded-md bg-white">{categoriasCadastradas.map(cat => <option key={cat.id} value={cat.nome}>{cat.nome}</option>)}</select></div>
               </div>
-              <div>
-                <div className="flex justify-between mb-1">
-                  <label className="block text-sm font-medium">Descrição</label>
-                  <button type="button" onClick={gerarDescricaoIA} disabled={gerandoIA || !nome} className="text-xs bg-purple-100 text-purple-700 font-bold px-2 py-1 rounded">✨ Gerar com IA</button>
-                </div>
-                <textarea rows={3} value={descricao} onChange={(e) => setDescricao(e.target.value)} className="w-full p-2 border rounded-md text-sm" />
+              <div className="flex justify-between items-center mt-2"><label className="block text-sm font-medium">Descrição</label><button type="button" onClick={gerarDescricaoIA} disabled={!nome} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">✨ IA</button></div>
+              <textarea rows={3} value={descricao} onChange={(e) => setDescricao(e.target.value)} className="w-full p-2 border rounded-md text-sm bg-white" />
+              <div><label className="block text-sm font-medium mb-1">Foto (deixe em branco para manter a atual)</label><input type="file" accept="image/*" onChange={(e) => setImagemProduto(e.target.files?.[0] || null)} className="w-full p-2 border rounded-md bg-white" /></div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={carregandoProduto} className={`flex-1 text-white font-bold py-2 rounded-md ${idProdutoEdicao ? 'bg-blue-600' : 'bg-green-600'}`}>{idProdutoEdicao ? 'Salvar Alterações' : 'Cadastrar Produto'}</button>
+                {idProdutoEdicao && <button type="button" onClick={cancelarEdicaoProduto} className="bg-gray-300 px-4 py-2 rounded-md font-bold">Cancelar</button>}
               </div>
-              <div><label className="block text-sm font-medium mb-1">Foto</label><input type="file" accept="image/*" onChange={(e) => setImagemProduto(e.target.files?.[0] || null)} className="w-full p-2 border rounded-md" /></div>
-              <button type="submit" disabled={carregandoProduto} className="w-full bg-blue-600 text-white font-bold py-2 rounded-md">Salvar Produto</button>
             </form>
-            <h3 className="font-bold border-b pb-2 mb-4">Produtos Cadastrados</h3>
-            <ul className="space-y-2">
-              {listaProdutos.map(p => (
-                <li key={p.id} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                  <span>{p.nome} - R$ {p.preco}</span>
-                  <button onClick={() => excluirItem('produtos', p.id)} className="text-red-500 font-bold hover:underline">Excluir</button>
-                </li>
-              ))}
-            </ul>
+            <h3 className="font-bold border-b pb-2 mb-4">Painel de Produtos Cadastrados</h3>
+            <div className="overflow-x-auto border border-gray-200 shadow-sm rounded-lg">
+              <table className="w-full text-sm text-left whitespace-nowrap">
+                <thead className="bg-gray-100 text-gray-700">
+                  <tr><th className="p-3 border-r">Foto</th><th className="p-3 border-r">Nome</th><th className="p-3 border-r">Categoria</th><th className="p-3 border-r">Preço</th><th className="p-3 text-center">Ações</th></tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {listaProdutos.map(p => (
+                    <tr key={p.id} className="hover:bg-gray-50">
+                      <td className="p-3 border-r w-16">{p.imagem_url ? <img src={p.imagem_url} className="w-10 h-10 object-cover rounded" /> : <div className="w-10 h-10 bg-gray-200 rounded"></div>}</td>
+                      <td className="p-3 border-r font-medium text-gray-900">{p.nome}</td><td className="p-3 border-r text-gray-600">{p.categoria}</td><td className="p-3 border-r font-bold text-green-700">R$ {p.preco.toFixed(2)}</td>
+                      <td className="p-3 text-center flex justify-center gap-2 pt-4">
+                        <button onClick={() => iniciarEdicaoProduto(p)} className="bg-blue-500 text-white px-3 py-1 rounded text-xs font-bold">Editar</button>
+                        <button onClick={() => excluirItem('produtos', p.id)} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold">Excluir</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {listaProdutos.length === 0 && (<tr><td colSpan={5} className="p-6 text-center text-gray-500">Nenhum produto cadastrado.</td></tr>)}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -396,48 +433,84 @@ export default function AdminPanel() {
           <div className="max-w-2xl mx-auto">
             <form onSubmit={handleSalvarVendedor} className={`space-y-4 mb-8 p-4 rounded-xl border ${idVendedorEdicao ? 'bg-blue-50/30 border-blue-200' : 'bg-green-50/30 border-green-100'}`}>
               {idVendedorEdicao && <div className="text-blue-600 font-bold text-sm mb-2">Editando Vendedor</div>}
-              <div>
-                <label className="block text-sm font-medium mb-1">Nome do Vendedor</label>
-                <input type="text" required value={nomeVendedor} onChange={(e) => setNomeVendedor(e.target.value)} className="w-full p-2 border rounded-md" />
-              </div>
+              <div><label className="block text-sm font-medium mb-1">Nome do Vendedor</label><input type="text" required value={nomeVendedor} onChange={(e) => setNomeVendedor(e.target.value)} className="w-full p-2 border rounded-md" /></div>
               <div className="flex gap-4">
-                <div className="w-1/3">
-                  <label className="block text-sm font-medium mb-1">Telefone / Usuário</label>
-                  <input type="text" required value={telefoneVendedor} onChange={(e) => setTelefoneVendedor(e.target.value)} className="w-full p-2 border rounded-md" />
-                </div>
-                <div className="w-1/3">
-                  <label className="block text-sm font-medium mb-1">Senha</label>
-                  <input type="text" required value={senhaVendedor} onChange={(e) => setSenhaVendedor(e.target.value)} className="w-full p-2 border rounded-md" placeholder="Senha de acesso" />
-                </div>
-                <div className="w-1/3">
-                  <label className="block text-sm font-medium mb-1">Comissão (%)</label>
-                  <input type="number" step="0.1" required value={comissaoVendedor} onChange={(e) => setComissaoVendedor(e.target.value)} className="w-full p-2 border rounded-md" />
-                </div>
+                <div className="w-1/3"><label className="block text-sm font-medium mb-1">Telefone / Usuário</label><input type="text" required value={telefoneVendedor} onChange={(e) => setTelefoneVendedor(e.target.value)} className="w-full p-2 border rounded-md" /></div>
+                <div className="w-1/3"><label className="block text-sm font-medium mb-1">Senha</label><input type="text" required value={senhaVendedor} onChange={(e) => setSenhaVendedor(e.target.value)} className="w-full p-2 border rounded-md" placeholder="Senha de acesso" /></div>
+                <div className="w-1/3"><label className="block text-sm font-medium mb-1">Comissão (%)</label><input type="number" step="0.1" required value={comissaoVendedor} onChange={(e) => setComissaoVendedor(e.target.value)} className="w-full p-2 border rounded-md" /></div>
               </div>
               <div className="flex gap-2">
-                <button type="submit" disabled={carregandoVendedor} className={`flex-1 text-white font-bold py-2 rounded-md transition-colors ${idVendedorEdicao ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}>
-                  {idVendedorEdicao ? 'Salvar Alterações' : 'Cadastrar Vendedor'}
-                </button>
-                {idVendedorEdicao && (
-                  <button type="button" onClick={cancelarEdicaoVendedor} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-md transition-colors">Cancelar</button>
-                )}
+                <button type="submit" disabled={carregandoVendedor} className={`flex-1 text-white font-bold py-2 rounded-md transition-colors ${idVendedorEdicao ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}>{idVendedorEdicao ? 'Salvar Alterações' : 'Cadastrar Vendedor'}</button>
+                {idVendedorEdicao && <button type="button" onClick={cancelarEdicaoVendedor} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-md transition-colors">Cancelar</button>}
               </div>
             </form>
             <h3 className="font-bold border-b pb-2 mb-4">Equipe de Vendas</h3>
             <ul className="space-y-2 text-sm">
               {listaVendedores.map(v => (
                 <li key={v.id} className="flex justify-between items-center bg-gray-50 p-3 rounded border border-gray-100">
-                  <div>
-                    <strong>{v.nome}</strong> <span className="text-gray-500">({v.telefone})</span> - Senha: {v.senha}
-                    <p className="text-green-700 font-semibold text-xs mt-1">Comissão: {v.comissao_percentual}%</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => iniciarEdicaoVendedor(v)} className="text-blue-500 font-bold hover:underline">Editar</button>
-                    <button onClick={() => excluirItem('pessoas', v.id)} className="text-red-500 font-bold hover:underline">Excluir</button>
-                  </div>
+                  <div><strong>{v.nome}</strong> <span className="text-gray-500">({v.telefone})</span> - Senha: {v.senha}<p className="text-green-700 font-semibold text-xs mt-1">Comissão: {v.comissao_percentual}%</p></div>
+                  <div className="flex gap-3"><button onClick={() => iniciarEdicaoVendedor(v)} className="text-blue-500 font-bold hover:underline">Editar</button><button onClick={() => excluirItem('pessoas', v.id)} className="text-red-500 font-bold hover:underline">Excluir</button></div>
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* --- ABA FORMAS DE PAGAMENTO (NOVA) --- */}
+        {abaAtiva === 'pagamentos' && usuarioLogado.tipo === 'admin' && (
+          <div>
+            <form onSubmit={handleSalvarPagamento} className={`space-y-4 mb-8 p-4 rounded-xl border ${idPagamentoEdicao ? 'bg-indigo-50/50 border-indigo-200' : 'bg-gray-50 border-gray-200'}`}>
+              {idPagamentoEdicao && <div className="text-indigo-600 font-bold text-sm mb-2">Editando Forma de Pagamento</div>}
+              
+              <div className="flex gap-4">
+                <div className="w-1/2"><label className="block text-sm font-medium mb-1">Título</label><input type="text" required value={pagTitulo} onChange={(e) => setPagTitulo(e.target.value)} className="w-full p-2 border rounded-md bg-white" placeholder="Ex: Cartão de Crédito até 10x" /></div>
+                <div className="w-1/2"><label className="block text-sm font-medium mb-1">Descrição</label><input type="text" value={pagDescricao} onChange={(e) => setPagDescricao(e.target.value)} className="w-full p-2 border rounded-md bg-white" placeholder="Ex: Acima de R$ 3.800,00" /></div>
+              </div>
+
+              <div className="flex gap-4 items-end">
+                <div className="w-1/3"><label className="block text-sm font-medium mb-1">Val. Mínimo (R$)</label><input type="text" value={pagValorMinimo} onChange={(e) => setPagValorMinimo(e.target.value)} className="w-full p-2 border rounded-md bg-white" placeholder="0,00" /></div>
+                <div className="w-1/3"><label className="block text-sm font-medium mb-1">Ordem (Exibição)</label><input type="number" required value={pagOrdem} onChange={(e) => setPagOrdem(e.target.value)} className="w-full p-2 border rounded-md bg-white" /></div>
+                <div className="w-1/3 flex items-center h-10 px-2">
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-gray-700"><input type="checkbox" checked={pagStatusAtivo} onChange={(e) => setPagStatusAtivo(e.target.checked)} className="w-5 h-5 accent-indigo-600" /> Status Ativo</label>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button type="submit" disabled={carregandoPagamento} className={`flex-1 text-white font-bold py-2 rounded-md transition-colors ${idPagamentoEdicao ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-green-600 hover:bg-green-700'}`}>{idPagamentoEdicao ? 'Salvar Alterações' : 'Cadastrar Pagamento'}</button>
+                {idPagamentoEdicao && <button type="button" onClick={cancelarEdicaoPagamento} className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded-md transition-colors">Cancelar</button>}
+              </div>
+            </form>
+
+            <h3 className="font-bold border-b pb-2 mb-4">Formas de Pagamento</h3>
+            <div className="overflow-x-auto border border-gray-200 shadow-sm rounded-lg">
+              <table className="w-full text-sm text-left whitespace-nowrap">
+                <thead className="bg-gray-50 text-gray-600 border-b border-gray-200">
+                  <tr>
+                    <th className="p-3 border-r font-semibold">Código</th><th className="p-3 border-r font-semibold">Título</th>
+                    <th className="p-3 border-r font-semibold">Descrição</th><th className="p-3 border-r font-semibold">Val. Mínimo</th>
+                    <th className="p-3 border-r font-semibold text-center">Ordem</th><th className="p-3 border-r font-semibold text-center">Status</th>
+                    <th className="p-3 font-semibold text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {listaPagamentos.map(pag => (
+                    <tr key={pag.id} className="hover:bg-gray-50 text-gray-700">
+                      <td className="p-3 border-r">{pag.id}</td>
+                      <td className="p-3 border-r font-medium text-gray-900">{pag.titulo}</td>
+                      <td className="p-3 border-r">{pag.descricao}</td>
+                      <td className="p-3 border-r text-gray-600">{pag.valor_minimo > 0 ? `R$ ${Number(pag.valor_minimo).toFixed(2)}` : '-'}</td>
+                      <td className="p-3 border-r text-center">{pag.ordem}</td>
+                      <td className="p-3 border-r text-center">{pag.status_ativo ? <span className="bg-green-400 text-white px-2 py-1 rounded text-xs font-bold">✔</span> : <span className="bg-gray-300 text-gray-600 px-2 py-1 rounded text-xs font-bold">✖</span>}</td>
+                      <td className="p-3 text-center flex justify-center gap-1">
+                        <button onClick={() => iniciarEdicaoPagamento(pag)} className="bg-green-500 text-white p-1.5 rounded hover:bg-green-600" title="Editar">📝</button>
+                        <button onClick={() => excluirItem('formas_pagamento', pag.id)} className="bg-red-400 text-white p-1.5 rounded hover:bg-red-500" title="Excluir">✖</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {listaPagamentos.length === 0 && (<tr><td colSpan={7} className="p-6 text-center text-gray-500">Nenhuma forma de pagamento configurada.</td></tr>)}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -445,43 +518,20 @@ export default function AdminPanel() {
         {abaAtiva === 'clientes' && (
           <div>
             <div className="flex gap-2 mb-6">
-              <button onClick={() => { limparFormCli(); setMostrarFormCli(!mostrarFormCli); setMostrarFiltrosCli(false) }} className="bg-teal-400 hover:bg-teal-500 text-white font-bold py-2 px-4 rounded shadow-sm text-sm flex items-center gap-1">
-                + Adicionar
-              </button>
-              <button onClick={() => { setMostrarFiltrosCli(!mostrarFiltrosCli); setMostrarFormCli(false) }} className="bg-blue-400 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded shadow-sm text-sm flex items-center gap-1">
-                Y Filtrar
-              </button>
+              <button onClick={() => { limparFormCli(); setMostrarFormCli(!mostrarFormCli); setMostrarFiltrosCli(false) }} className="bg-teal-400 hover:bg-teal-500 text-white font-bold py-2 px-4 rounded shadow-sm text-sm flex items-center gap-1">+ Adicionar</button>
+              <button onClick={() => { setMostrarFiltrosCli(!mostrarFiltrosCli); setMostrarFormCli(false) }} className="bg-blue-400 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded shadow-sm text-sm flex items-center gap-1">Y Filtrar</button>
             </div>
-
             {mostrarFiltrosCli && (
               <div className="bg-gray-50 p-4 border border-gray-200 rounded-md mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2"><label className="w-1/3 text-right text-gray-600">Razão Social/Fantasia</label><input type="text" value={filtroCliNome} onChange={e=>setFiltroCliNome(e.target.value)} className="w-2/3 p-2 border rounded" placeholder="Título" /></div>
-                <div className="flex items-center gap-2"><label className="w-1/3 text-right text-gray-600">CNPJ / CPF</label><input type="text" value={filtroCliCpf} onChange={e=>setFiltroCliCpf(e.target.value)} className="w-2/3 p-2 border rounded" placeholder="CNPJ / CPF" /></div>
-                <div className="flex items-center gap-2">
-                  <label className="w-1/3 text-right text-gray-600">Representante</label>
-                  <select value={filtroCliRep} onChange={e=>setFiltroCliRep(e.target.value)} className="w-2/3 p-2 border rounded bg-white">
-                    <option value="">Qualquer</option>{listaVendedores.map(v => <option key={v.id} value={v.id}>{v.nome}</option>)}
-                  </select>
-                </div>
-                <div className="flex items-center gap-2"><label className="w-1/3 text-right text-gray-600">Cidade</label><input type="text" value={filtroCliCidade} onChange={e=>setFiltroCliCidade(e.target.value)} className="w-2/3 p-2 border rounded" placeholder="Cidade" /></div>
-                <div className="flex items-center gap-2">
-                  <label className="w-1/3 text-right text-gray-600">Estado</label>
-                  <select value={filtroCliEstado} onChange={e=>setFiltroCliEstado(e.target.value)} className="w-2/3 p-2 border rounded bg-white">
-                    <option value="">Qualquer</option><option value="PR">PR</option><option value="SP">SP</option><option value="SC">SC</option><option value="RS">RS</option><option value="MT">MT</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="w-1/3 text-right text-gray-600">Situação</label>
-                  <select value={filtroCliStatus} onChange={e=>setFiltroCliStatus(e.target.value)} className="w-2/3 p-2 border rounded bg-white">
-                    <option value="">Qualquer</option><option value="true">Ativo</option><option value="false">Inativo</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2 flex justify-end gap-2 mt-2">
-                  <button onClick={limparFiltrosCli} className="bg-red-400 text-white px-4 py-2 rounded font-bold">Limpar</button>
-                </div>
+                <div className="flex items-center gap-2"><label className="w-1/3 text-right text-gray-600">Razão Social/Fantasia</label><input type="text" value={filtroCliNome} onChange={e=>setFiltroCliNome(e.target.value)} className="w-2/3 p-2 border rounded" /></div>
+                <div className="flex items-center gap-2"><label className="w-1/3 text-right text-gray-600">CNPJ / CPF</label><input type="text" value={filtroCliCpf} onChange={e=>setFiltroCliCpf(e.target.value)} className="w-2/3 p-2 border rounded" /></div>
+                <div className="flex items-center gap-2"><label className="w-1/3 text-right text-gray-600">Representante</label><select value={filtroCliRep} onChange={e=>setFiltroCliRep(e.target.value)} className="w-2/3 p-2 border rounded bg-white"><option value="">Qualquer</option>{listaVendedores.map(v => <option key={v.id} value={v.id}>{v.nome}</option>)}</select></div>
+                <div className="flex items-center gap-2"><label className="w-1/3 text-right text-gray-600">Cidade</label><input type="text" value={filtroCliCidade} onChange={e=>setFiltroCliCidade(e.target.value)} className="w-2/3 p-2 border rounded" /></div>
+                <div className="flex items-center gap-2"><label className="w-1/3 text-right text-gray-600">Estado</label><select value={filtroCliEstado} onChange={e=>setFiltroCliEstado(e.target.value)} className="w-2/3 p-2 border rounded bg-white"><option value="">Qualquer</option><option value="PR">PR</option><option value="SP">SP</option><option value="SC">SC</option><option value="RS">RS</option><option value="MT">MT</option></select></div>
+                <div className="flex items-center gap-2"><label className="w-1/3 text-right text-gray-600">Situação</label><select value={filtroCliStatus} onChange={e=>setFiltroCliStatus(e.target.value)} className="w-2/3 p-2 border rounded bg-white"><option value="">Qualquer</option><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+                <div className="md:col-span-2 flex justify-end gap-2 mt-2"><button onClick={limparFiltrosCli} className="bg-red-400 text-white px-4 py-2 rounded font-bold">Limpar</button></div>
               </div>
             )}
-
             {mostrarFormCli && (
               <form onSubmit={handleSalvarCliente} className="bg-white p-6 border border-teal-200 rounded-md mb-6 shadow-sm text-sm">
                 <h3 className="font-bold text-teal-700 mb-4 text-lg border-b pb-2">{idCliEdicao ? 'Editar Cliente' : 'Novo Cliente'}</h3>
@@ -492,38 +542,17 @@ export default function AdminPanel() {
                   <div><label className="block text-gray-600 mb-1">CPF / CNPJ</label><input type="text" value={cliCpfCnpj} onChange={e=>setCliCpfCnpj(e.target.value)} className="w-full p-2 border rounded" /></div>
                   <div><label className="block text-gray-600 mb-1">Telefone/Celular</label><input type="text" value={cliTelefone} onChange={e=>setCliTelefone(e.target.value)} className="w-full p-2 border rounded" /></div>
                   <div><label className="block text-gray-600 mb-1">Cidade</label><input type="text" value={cliCidade} onChange={e=>setCliCidade(e.target.value)} className="w-full p-2 border rounded" /></div>
-                  <div>
-                    <label className="block text-gray-600 mb-1">Estado</label>
-                    <select value={cliEstado} onChange={e=>setCliEstado(e.target.value)} className="w-full p-2 border rounded bg-white">
-                      <option value="">Selecione</option><option value="PR">PR</option><option value="SP">SP</option><option value="SC">SC</option><option value="RS">RS</option><option value="MT">MT</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-gray-600 mb-1">Representante</label>
-                    <select value={cliRepresentante} onChange={e=>setCliRepresentante(e.target.value)} className="w-full p-2 border rounded bg-white">
-                      <option value="">Nenhum</option>{listaVendedores.map(v => <option key={v.id} value={v.id}>{v.nome}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex items-end pb-2">
-                    <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={cliStatusAtivo} onChange={e=>setCliStatusAtivo(e.target.checked)} className="w-4 h-4" /> <span className="text-gray-600 font-bold">Cliente Ativo</span></label>
-                  </div>
+                  <div><label className="block text-gray-600 mb-1">Estado</label><select value={cliEstado} onChange={e=>setCliEstado(e.target.value)} className="w-full p-2 border rounded bg-white"><option value="">Selecione</option><option value="PR">PR</option><option value="SP">SP</option><option value="SC">SC</option><option value="RS">RS</option><option value="MT">MT</option></select></div>
+                  <div><label className="block text-gray-600 mb-1">Representante</label><select value={cliRepresentante} onChange={e=>setCliRepresentante(e.target.value)} className="w-full p-2 border rounded bg-white"><option value="">Nenhum</option>{listaVendedores.map(v => <option key={v.id} value={v.id}>{v.nome}</option>)}</select></div>
+                  <div className="flex items-end pb-2"><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={cliStatusAtivo} onChange={e=>setCliStatusAtivo(e.target.checked)} className="w-4 h-4" /> <span className="text-gray-600 font-bold">Cliente Ativo</span></label></div>
                 </div>
-                <div className="flex gap-2 justify-end">
-                  <button type="button" onClick={() => setMostrarFormCli(false)} className="bg-gray-300 px-4 py-2 rounded font-bold">Cancelar</button>
-                  <button type="submit" className="bg-teal-500 hover:bg-teal-600 text-white px-6 py-2 rounded font-bold">Salvar Cliente</button>
-                </div>
+                <div className="flex gap-2 justify-end"><button type="button" onClick={() => setMostrarFormCli(false)} className="bg-gray-300 px-4 py-2 rounded font-bold">Cancelar</button><button type="submit" className="bg-teal-500 hover:bg-teal-600 text-white px-6 py-2 rounded font-bold">Salvar Cliente</button></div>
               </form>
             )}
-
             <div className="overflow-x-auto border border-gray-200 shadow-sm">
               <table className="w-full text-xs text-left whitespace-nowrap">
                 <thead className="bg-gray-50 text-gray-600 border-b border-gray-200">
-                  <tr>
-                    <th className="p-3 border-r">Código</th><th className="p-3 border-r">Tipo</th><th className="p-3 border-r">Razão / Nome</th>
-                    <th className="p-3 border-r">Fantasia</th><th className="p-3 border-r">Representante</th><th className="p-3 border-r">Cidade</th>
-                    <th className="p-3 border-r">Estado</th><th className="p-3 border-r">Telefone/Celular</th><th className="p-3 border-r text-center">Pedidos</th>
-                    <th className="p-3 border-r">Data Cad.</th><th className="p-3 border-r text-center">Status</th><th className="p-3 text-center">Ações</th>
-                  </tr>
+                  <tr><th className="p-3 border-r">Código</th><th className="p-3 border-r">Tipo</th><th className="p-3 border-r">Razão / Nome</th><th className="p-3 border-r">Fantasia</th><th className="p-3 border-r">Representante</th><th className="p-3 border-r">Cidade</th><th className="p-3 border-r">Estado</th><th className="p-3 border-r">Telefone/Celular</th><th className="p-3 border-r text-center">Pedidos</th><th className="p-3 border-r">Data Cad.</th><th className="p-3 border-r text-center">Status</th><th className="p-3 text-center">Ações</th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {clientesFiltrados.map(c => {
@@ -532,18 +561,8 @@ export default function AdminPanel() {
                     const dataCad = new Date(c.data_cadastro).toLocaleDateString('pt-BR')
                     return (
                       <tr key={c.id} className="hover:bg-gray-50 text-gray-700">
-                        <td className="p-3 border-r">{c.id}</td><td className="p-3 border-r">{c.tipo_pessoa}</td>
-                        <td className="p-3 border-r font-medium max-w-[200px] truncate" title={c.nome}>{c.nome}</td>
-                        <td className="p-3 border-r truncate max-w-[150px]">{c.nome_fantasia}</td><td className="p-3 border-r">{rep ? rep.nome : '-'}</td>
-                        <td className="p-3 border-r">{c.cidade}</td><td className="p-3 border-r">{c.estado}</td><td className="p-3 border-r">{c.telefone}</td>
-                        <td className="p-3 border-r text-center font-bold">{numPedidos}</td><td className="p-3 border-r">{dataCad}</td>
-                        <td className="p-3 border-r text-center">{c.status_ativo ? <span className="bg-green-500 text-white px-2 py-1 rounded text-[10px] font-bold">✔</span> : <span className="bg-red-500 text-white px-2 py-1 rounded text-[10px] font-bold">✖</span>}</td>
-                        <td className="p-3 text-center flex justify-center gap-1">
-                          <button onClick={() => iniciarEdicaoCliente(c)} className="bg-green-500 text-white p-1.5 rounded hover:bg-green-600" title="Editar">📝</button>
-                          {usuarioLogado.tipo === 'admin' && (
-                            <button onClick={() => excluirItem('pessoas', c.id)} className="bg-red-400 text-white p-1.5 rounded hover:bg-red-500" title="Excluir">✖</button>
-                          )}
-                        </td>
+                        <td className="p-3 border-r">{c.id}</td><td className="p-3 border-r">{c.tipo_pessoa}</td><td className="p-3 border-r font-medium max-w-[200px] truncate" title={c.nome}>{c.nome}</td><td className="p-3 border-r truncate max-w-[150px]">{c.nome_fantasia}</td><td className="p-3 border-r">{rep ? rep.nome : '-'}</td><td className="p-3 border-r">{c.cidade}</td><td className="p-3 border-r">{c.estado}</td><td className="p-3 border-r">{c.telefone}</td><td className="p-3 border-r text-center font-bold">{numPedidos}</td><td className="p-3 border-r">{dataCad}</td><td className="p-3 border-r text-center">{c.status_ativo ? <span className="bg-green-500 text-white px-2 py-1 rounded text-[10px] font-bold">✔</span> : <span className="bg-red-500 text-white px-2 py-1 rounded text-[10px] font-bold">✖</span>}</td>
+                        <td className="p-3 text-center flex justify-center gap-1"><button onClick={() => iniciarEdicaoCliente(c)} className="bg-green-500 text-white p-1.5 rounded hover:bg-green-600" title="Editar">📝</button>{usuarioLogado.tipo === 'admin' && (<button onClick={() => excluirItem('pessoas', c.id)} className="bg-red-400 text-white p-1.5 rounded hover:bg-red-500" title="Excluir">✖</button>)}</td>
                       </tr>
                     )
                   })}
@@ -558,18 +577,11 @@ export default function AdminPanel() {
         {abaAtiva === 'pedidos' && (
           <div>
             <h3 className="font-bold text-xl mb-1">Controle de Pedidos</h3>
-            <p className="text-sm text-gray-500 border-b pb-4 mb-6">
-              {usuarioLogado.tipo === 'admin' ? 'Acompanhe todos os pedidos realizados na loja.' : 'Acompanhe exclusivamente os pedidos vinculados ao seu usuário.'}
-            </p>
+            <p className="text-sm text-gray-500 border-b pb-4 mb-6">{usuarioLogado.tipo === 'admin' ? 'Acompanhe todos os pedidos realizados na loja.' : 'Acompanhe exclusivamente os pedidos vinculados ao seu usuário.'}</p>
             <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
               <table className="w-full text-sm text-left whitespace-nowrap">
                 <thead className="bg-gray-100 text-gray-700">
-                  <tr>
-                    <th className="p-3 font-semibold border-b">Cód.</th><th className="p-3 font-semibold border-b">Data</th>
-                    <th className="p-3 font-semibold border-b">Cliente</th><th className="p-3 font-semibold border-b">Representante</th>
-                    <th className="p-3 font-semibold border-b text-right">Total (R$)</th><th className="p-3 font-semibold border-b text-center">Status</th>
-                    <th className="p-3 font-semibold border-b text-center">Ações</th>
-                  </tr>
+                  <tr><th className="p-3 font-semibold border-b">Cód.</th><th className="p-3 font-semibold border-b">Data</th><th className="p-3 font-semibold border-b">Cliente</th><th className="p-3 font-semibold border-b">Representante</th><th className="p-3 font-semibold border-b">Pagamento</th><th className="p-3 font-semibold border-b text-right">Total (R$)</th><th className="p-3 font-semibold border-b text-center">Status</th><th className="p-3 font-semibold border-b text-center">Ações</th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {listaPedidos.map(pedido => {
@@ -578,9 +590,7 @@ export default function AdminPanel() {
                     const estaBloqueado = pedido.status === 'Concluído' && !desbloqueados.includes(pedido.id)
                     return (
                       <tr key={pedido.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="p-3 text-gray-900 font-bold">#{pedido.id}</td><td className="p-3 text-gray-600">{new Date(pedido.data_pedido).toLocaleDateString('pt-BR')}</td>
-                        <td className="p-3 text-gray-900 font-medium">{cliente?.nome || 'Desconhecido'} <span className="text-xs text-gray-500 block">{cliente?.telefone}</span></td>
-                        <td className="p-3 text-gray-600">{vendedor?.nome || '-'}</td><td className="p-3 text-right font-bold text-green-700">R$ {Number(pedido.valor_total).toFixed(2)}</td>
+                        <td className="p-3 text-gray-900 font-bold">#{pedido.id}</td><td className="p-3 text-gray-600">{new Date(pedido.data_pedido).toLocaleDateString('pt-BR')}</td><td className="p-3 text-gray-900 font-medium">{cliente?.nome || 'Desconhecido'} <span className="text-xs text-gray-500 block">{cliente?.telefone}</span></td><td className="p-3 text-gray-600">{vendedor?.nome || '-'}</td><td className="p-3 text-blue-600 font-medium">{pedido.forma_pagamento || '-'}</td><td className="p-3 text-right font-bold text-green-700">R$ {Number(pedido.valor_total).toFixed(2)}</td>
                         <td className="p-3 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <select value={pedido.status} disabled={estaBloqueado} onChange={(e) => atualizarStatusPedido(pedido.id, e.target.value)} className={`text-xs font-bold py-1 px-2 rounded-full border outline-none ${estaBloqueado ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${pedido.status === 'Pendente' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : pedido.status === 'Em Produção' ? 'bg-blue-100 text-blue-800 border-blue-200' : pedido.status === 'Despachado' ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-green-100 text-green-800 border-green-200'}`}>
@@ -589,14 +599,11 @@ export default function AdminPanel() {
                             {estaBloqueado && usuarioLogado.tipo === 'admin' && (<button onClick={() => desbloquearPedido(pedido.id)} className="text-gray-400 hover:text-gray-700">🔒</button>)}
                           </div>
                         </td>
-                        <td className="p-3 text-center flex items-center justify-center gap-2">
-                          <button onClick={() => reimprimirPedido(pedido)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold">PDF</button>
-                          {usuarioLogado.tipo === 'admin' && (<button onClick={() => excluirItem('pedidos', pedido.id)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-bold">Excluir</button>)}
-                        </td>
+                        <td className="p-3 text-center flex items-center justify-center gap-2"><button onClick={() => reimprimirPedido(pedido)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold">PDF</button>{usuarioLogado.tipo === 'admin' && (<button onClick={() => excluirItem('pedidos', pedido.id)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-bold">Excluir</button>)}</td>
                       </tr>
                     )
                   })}
-                  {listaPedidos.length === 0 && (<tr><td colSpan={7} className="p-8 text-center text-gray-500 italic">Nenhum pedido encontrado.</td></tr>)}
+                  {listaPedidos.length === 0 && (<tr><td colSpan={8} className="p-8 text-center text-gray-500 italic">Nenhum pedido encontrado.</td></tr>)}
                 </tbody>
               </table>
             </div>
@@ -608,18 +615,13 @@ export default function AdminPanel() {
           <div>
             <div className="flex justify-between items-start mb-1">
               <h3 className="font-bold text-xl">Fechamento de Comissões</h3>
-              <button onClick={gerarRelatorioPDF} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md text-sm flex items-center gap-2 transition-colors shadow-sm">
-                📄 Baixar PDF
-              </button>
+              <button onClick={gerarRelatorioPDF} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md text-sm flex items-center gap-2 transition-colors shadow-sm">📄 Baixar PDF</button>
             </div>
-            <p className="text-sm text-gray-500 border-b pb-4 mb-6">Relatório em tempo real das vendas realizadas e comissões geradas por cada vendedor.</p>
+            <p className="text-sm text-gray-500 border-b pb-4 mb-6">Relatório em tempo real das vendas e comissões.</p>
             <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-100 text-gray-700">
-                  <tr>
-                    <th className="p-4 font-semibold">Vendedor</th><th className="p-4 font-semibold text-center">Taxa (%)</th>
-                    <th className="p-4 font-semibold text-right">Total Vendido</th><th className="p-4 font-semibold text-right text-purple-700">Comissão a Pagar</th>
-                  </tr>
+                  <tr><th className="p-4 font-semibold">Vendedor</th><th className="p-4 font-semibold text-center">Taxa (%)</th><th className="p-4 font-semibold text-right">Total Vendido</th><th className="p-4 font-semibold text-right text-purple-700">Comissão a Pagar</th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {listaVendedores.map(vend => {
@@ -628,8 +630,7 @@ export default function AdminPanel() {
                     const valorComissao = totalVendido * (vend.comissao_percentual / 100)
                     return (
                       <tr key={vend.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="p-4 font-medium text-gray-900">{vend.nome}</td><td className="p-4 text-center text-gray-600">{vend.comissao_percentual}%</td>
-                        <td className="p-4 text-right text-blue-600 font-bold">R$ {totalVendido.toFixed(2)}</td><td className="p-4 text-right text-green-600 font-bold bg-green-50/30">R$ {valorComissao.toFixed(2)}</td>
+                        <td className="p-4 font-medium text-gray-900">{vend.nome}</td><td className="p-4 text-center text-gray-600">{vend.comissao_percentual}%</td><td className="p-4 text-right text-blue-600 font-bold">R$ {totalVendido.toFixed(2)}</td><td className="p-4 text-right text-green-600 font-bold bg-green-50/30">R$ {valorComissao.toFixed(2)}</td>
                       </tr>
                     )
                   })}
