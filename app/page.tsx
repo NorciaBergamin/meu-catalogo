@@ -10,7 +10,9 @@ export default function Home() {
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos')
   const [carregando, setCarregando] = useState(true)
   const [bannerAtual, setBannerAtual] = useState(0)
+  
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null)
+  const [quantidadeModal, setQuantidadeModal] = useState(1) // Novo estado para a quantidade no modal
 
   const [carrinho, setCarrinho] = useState<any[]>([])
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false)
@@ -47,16 +49,27 @@ export default function Home() {
     return () => clearInterval(intervalo)
   }, [banners.length])
 
-  const adicionarAoCarrinho = (produto: any) => {
+  // --- NOVA LÓGICA DE QUANTIDADES NO CARRINHO ---
+  const adicionarAoCarrinho = (produto: any, quantidadeDesejada: number) => {
     setCarrinho(prev => {
       const existe = prev.find(item => item.produto.id === produto.id)
       if (existe) {
-        return prev.map(item => item.produto.id === produto.id ? { ...item, quantidade: item.quantidade + 1 } : item)
+        return prev.map(item => item.produto.id === produto.id ? { ...item, quantidade: item.quantidade + quantidadeDesejada } : item)
       }
-      return [...prev, { produto, quantidade: 1 }]
+      return [...prev, { produto, quantidade: quantidadeDesejada }]
     })
     setProdutoSelecionado(null)
     setIsCarrinhoAberto(true)
+  }
+
+  const alterarQuantidadeItem = (produtoId: number, delta: number) => {
+    setCarrinho(prev => prev.map(item => {
+      if (item.produto.id === produtoId) {
+        const novaQtd = item.quantidade + delta
+        return novaQtd > 0 ? { ...item, quantidade: novaQtd } : item
+      }
+      return item
+    }))
   }
 
   const removerDoCarrinho = (produtoId: number) => {
@@ -72,7 +85,6 @@ export default function Home() {
 
     setFinalizando(true)
     try {
-      // 1. Cadastra o Cliente
       const { data: cliente, error: erroCli } = await supabase
         .from('pessoas')
         .insert([{ nome: nomeCliente, telefone: telefoneCliente, tipo: 'cliente' }])
@@ -80,7 +92,6 @@ export default function Home() {
         .single()
       if (erroCli) throw erroCli
 
-      // 2. Cria o Pedido
       const { data: pedido, error: erroPed } = await supabase
         .from('pedidos')
         .insert([{ cliente_id: cliente.id, vendedor_id: parseInt(vendedorSelecionado), valor_total: valorTotalCarrinho, status: 'Pendente' }])
@@ -88,7 +99,6 @@ export default function Home() {
         .single()
       if (erroPed) throw erroPed
 
-      // 3. Salva os Itens
       const itensBD = carrinho.map(item => ({
         pedido_id: pedido.id,
         produto_nome: item.produto.nome,
@@ -98,18 +108,15 @@ export default function Home() {
       const { error: erroItens } = await supabase.from('itens_pedido').insert(itensBD)
       if (erroItens) throw erroItens
 
-      // 4. PREPARAR E GERAR O PDF
       const vendedorObj = listaVendedores.find(v => v.id.toString() === vendedorSelecionado)
       const nomeVendedor = vendedorObj ? vendedorObj.nome : 'Não informado'
 
-      // Import dinâmico da biblioteca de PDF
       // @ts-ignore
       const html2pdf = (await import('html2pdf.js')).default
 
       const htmlPdf = `
         <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
           <h1 style="color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Pedido de Venda #${pedido.id}</h1>
-          
           <div style="display: flex; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
             <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
               <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3>
@@ -122,7 +129,6 @@ export default function Home() {
               <p style="margin: 5px 0;"><strong>Status:</strong> Aguardando Despacho</p>
             </div>
           </div>
-
           <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
             <thead>
               <tr style="background-color: #2563eb; color: white;">
@@ -143,11 +149,9 @@ export default function Home() {
               `).join('')}
             </tbody>
           </table>
-
           <div style="margin-top: 20px; text-align: right; font-size: 18px;">
             <strong>Total do Pedido: <span style="color: #166534;">R$ ${valorTotalCarrinho.toFixed(2)}</span></strong>
           </div>
-          
           <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #9ca3af;">
             Este documento foi gerado automaticamente pelo Catálogo Online.
           </div>
@@ -226,7 +230,11 @@ export default function Home() {
             <p className="text-gray-500 text-center col-span-full mt-10">Nenhum produto encontrado nesta categoria.</p>
           ) : (
             produtosFiltrados.map((produto) => (
-              <div key={produto.id} onClick={() => setProdutoSelecionado(produto)} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:shadow-lg transition-shadow cursor-pointer">
+              <div 
+                key={produto.id} 
+                onClick={() => { setProdutoSelecionado(produto); setQuantidadeModal(1); }} // Reseta a quantidade ao abrir novo produto
+                className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:shadow-lg transition-shadow cursor-pointer"
+              >
                 <div>
                   <div className="h-48 bg-gray-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
                     {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" /> : <span className="text-gray-400">Sem Imagem</span>}
@@ -255,8 +263,19 @@ export default function Home() {
               </div>
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <p className="text-sm text-gray-500 mb-1">Preço unitário</p>
-                <p className="text-green-700 font-bold text-4xl">R$ {produtoSelecionado.preco.toFixed(2)}</p>
-                <button onClick={() => adicionarAoCarrinho(produtoSelecionado)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg mt-6 transition-colors shadow-lg">
+                <p className="text-green-700 font-bold text-3xl mb-4">R$ {produtoSelecionado.preco.toFixed(2)}</p>
+                
+                {/* SELETOR DE QUANTIDADE DO MODAL */}
+                <div className="flex items-center gap-4 mb-4">
+                  <span className="text-gray-700 font-medium text-sm">Quantidade:</span>
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                    <button onClick={() => setQuantidadeModal(prev => Math.max(1, prev - 1))} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition-colors">-</button>
+                    <span className="px-4 py-2 font-semibold bg-white w-12 text-center">{quantidadeModal}</span>
+                    <button onClick={() => setQuantidadeModal(prev => prev + 1)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition-colors">+</button>
+                  </div>
+                </div>
+
+                <button onClick={() => adicionarAoCarrinho(produtoSelecionado, quantidadeModal)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg">
                   Adicionar ao Carrinho 🛒
                 </button>
               </div>
@@ -280,13 +299,23 @@ export default function Home() {
                 <div className="space-y-4">
                   {carrinho.map((item, idx) => (
                     <div key={idx} className="flex justify-between items-center border-b pb-4">
-                      <div>
-                        <p className="font-semibold">{item.produto.nome}</p>
-                        <p className="text-sm text-gray-500">Qtd: {item.quantidade} x R$ {item.produto.preco.toFixed(2)}</p>
+                      <div className="flex-1 pr-4">
+                        <p className="font-semibold text-gray-800 leading-tight">{item.produto.nome}</p>
+                        
+                        {/* SELETOR DE QUANTIDADE DENTRO DO CARRINHO */}
+                        <div className="flex items-center gap-3 mt-2">
+                          <div className="flex items-center border border-gray-300 rounded-md overflow-hidden h-7">
+                            <button onClick={() => alterarQuantidadeItem(item.produto.id, -1)} className="px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold">-</button>
+                            <span className="px-3 text-sm font-semibold bg-white">{item.quantidade}</span>
+                            <button onClick={() => alterarQuantidadeItem(item.produto.id, 1)} className="px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold">+</button>
+                          </div>
+                          <span className="text-xs text-gray-500">x R$ {item.produto.preco.toFixed(2)}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4">
+
+                      <div className="flex flex-col items-end gap-2">
                         <p className="font-bold text-green-700">R$ {(item.produto.preco * item.quantidade).toFixed(2)}</p>
-                        <button onClick={() => removerDoCarrinho(item.produto.id)} className="text-red-500 text-xs hover:underline">Remover</button>
+                        <button onClick={() => removerDoCarrinho(item.produto.id)} className="text-red-500 text-xs hover:underline bg-red-50 px-2 py-1 rounded">Remover</button>
                       </div>
                     </div>
                   ))}

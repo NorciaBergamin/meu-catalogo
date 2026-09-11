@@ -124,7 +124,6 @@ export default function AdminPanel() {
     setCarregandoCategoria(false)
   }
 
-  // --- FUNÇÕES DE EDIÇÃO DE VENDEDOR ---
   const iniciarEdicaoVendedor = (vendedor: any) => {
     setIdVendedorEdicao(vendedor.id)
     setNomeVendedor(vendedor.nome)
@@ -148,7 +147,6 @@ export default function AdminPanel() {
     const comissaoNumerica = parseFloat(comissaoVendedor.replace(',', '.')) || 0
     
     if (idVendedorEdicao) {
-      // Atualizar vendedor existente
       const { error } = await supabase.from('pessoas').update({ 
         nome: nomeVendedor, 
         telefone: telefoneVendedor, 
@@ -163,7 +161,6 @@ export default function AdminPanel() {
         setMensagem(`Erro: ${error.message}`)
       }
     } else {
-      // Cadastrar novo vendedor
       const { error } = await supabase.from('pessoas').insert([{ 
         nome: nomeVendedor, 
         telefone: telefoneVendedor, 
@@ -179,6 +176,86 @@ export default function AdminPanel() {
       }
     }
     setCarregandoVendedor(false)
+  }
+
+  // --- NOVA FUNÇÃO: GERAR RELATÓRIO PDF ---
+  const gerarRelatorioPDF = async () => {
+    setMensagem('Gerando PDF do relatório...')
+    try {
+      // @ts-ignore
+      const html2pdf = (await import('html2pdf.js')).default
+
+      let linhasTabela = ''
+      let totalGeralVendido = 0
+      let totalGeralComissao = 0
+
+      listaVendedores.forEach(vend => {
+        const pedidosDesteVendedor = listaPedidos.filter(p => p.vendedor_id === vend.id)
+        const totalVendido = pedidosDesteVendedor.reduce((acc, pedido) => acc + Number(pedido.valor_total), 0)
+        const valorComissao = totalVendido * (vend.comissao_percentual / 100)
+
+        totalGeralVendido += totalVendido
+        totalGeralComissao += valorComissao
+
+        linhasTabela += `
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px;">${vend.nome}</td>
+            <td style="padding: 12px; text-align: center;">${vend.comissao_percentual}%</td>
+            <td style="padding: 12px; text-align: right;">R$ ${totalVendido.toFixed(2)}</td>
+            <td style="padding: 12px; text-align: right; color: #166534; font-weight: bold;">R$ ${valorComissao.toFixed(2)}</td>
+          </tr>
+        `
+      })
+
+      const dataAtual = new Date().toLocaleDateString('pt-BR')
+
+      const htmlPdf = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h1 style="color: #9333ea; text-align: center; border-bottom: 2px solid #9333ea; padding-bottom: 10px;">Fechamento de Comissões</h1>
+          <p style="text-align: center; color: #666;">Relatório gerado em ${dataAtual}</p>
+
+          <table style="width: 100%; border-collapse: collapse; margin-top: 30px;">
+            <thead>
+              <tr style="background-color: #f3f4f6; color: #374151;">
+                <th style="padding: 12px; text-align: left;">Vendedor</th>
+                <th style="padding: 12px; text-align: center;">Taxa (%)</th>
+                <th style="padding: 12px; text-align: right;">Total Vendido</th>
+                <th style="padding: 12px; text-align: right;">Comissão a Pagar</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${linhasTabela}
+              ${listaVendedores.length === 0 ? '<tr><td colspan="4" style="text-align:center; padding: 20px;">Nenhum vendedor encontrado.</td></tr>' : ''}
+            </tbody>
+          </table>
+
+          <div style="margin-top: 40px; padding: 20px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <h3 style="margin-top: 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; color: #374151;">Resumo Geral da Loja</h3>
+            <div style="display: flex; justify-content: space-between; font-size: 16px; margin-top: 15px;">
+              <span>Total Vendido Bruto:</span>
+              <strong>R$ ${totalGeralVendido.toFixed(2)}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 20px; margin-top: 15px; color: #9333ea;">
+              <span>Total de Comissões a Pagar:</span>
+              <strong>R$ ${totalGeralComissao.toFixed(2)}</strong>
+            </div>
+          </div>
+        </div>
+      `
+
+      const opcoesPdf: any = {
+        margin: 10,
+        filename: `relatorio_comissoes_${new Date().getTime()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }
+
+      await html2pdf().set(opcoesPdf).from(htmlPdf).save()
+      setMensagem('PDF do relatório gerado e baixado com sucesso!')
+    } catch (error: any) {
+      setMensagem(`Erro ao gerar PDF: ${error.message}`)
+    }
   }
 
   return (
@@ -318,7 +395,15 @@ export default function AdminPanel() {
 
         {abaAtiva === 'relatorio' && (
           <div>
-            <h3 className="font-bold text-lg mb-1">Fechamento de Comissões</h3>
+            <div className="flex justify-between items-start mb-1">
+              <h3 className="font-bold text-xl">Fechamento de Comissões</h3>
+              <button 
+                onClick={gerarRelatorioPDF} 
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md text-sm flex items-center gap-2 transition-colors shadow-sm"
+              >
+                📄 Baixar PDF
+              </button>
+            </div>
             <p className="text-sm text-gray-500 border-b pb-4 mb-6">Relatório em tempo real das vendas realizadas e comissões geradas por cada vendedor.</p>
             
             <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
