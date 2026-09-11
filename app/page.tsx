@@ -12,15 +12,21 @@ export default function Home() {
   const [bannerAtual, setBannerAtual] = useState(0)
   
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null)
-  const [quantidadeModal, setQuantidadeModal] = useState(1) // Novo estado para a quantidade no modal
+  const [quantidadeModal, setQuantidadeModal] = useState(1) 
 
   const [carrinho, setCarrinho] = useState<any[]>([])
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false)
   const [listaVendedores, setListaVendedores] = useState<any[]>([])
+  const [finalizando, setFinalizando] = useState(false)
+
+  // --- NOVOS ESTADOS DO CLIENTE (CRM) ---
   const [nomeCliente, setNomeCliente] = useState('')
   const [telefoneCliente, setTelefoneCliente] = useState('')
+  const [tipoPessoa, setTipoPessoa] = useState('Física')
+  const [cpfCnpj, setCpfCnpj] = useState('')
+  const [cidade, setCidade] = useState('')
+  const [estado, setEstado] = useState('')
   const [vendedorSelecionado, setVendedorSelecionado] = useState('')
-  const [finalizando, setFinalizando] = useState(false)
 
   useEffect(() => {
     async function carregarDados() {
@@ -49,7 +55,6 @@ export default function Home() {
     return () => clearInterval(intervalo)
   }, [banners.length])
 
-  // --- NOVA LÓGICA DE QUANTIDADES NO CARRINHO ---
   const adicionarAoCarrinho = (produto: any, quantidadeDesejada: number) => {
     setCarrinho(prev => {
       const existe = prev.find(item => item.produto.id === produto.id)
@@ -85,13 +90,28 @@ export default function Home() {
 
     setFinalizando(true)
     try {
+      // 1. Cadastra o Cliente com todos os dados do CRM
+      const payloadCliente = {
+        nome: nomeCliente,
+        telefone: telefoneCliente,
+        tipo: 'cliente',
+        tipo_pessoa: tipoPessoa,
+        cpf_cnpj: cpfCnpj,
+        cidade: cidade,
+        estado: estado,
+        representante_id: parseInt(vendedorSelecionado),
+        status_ativo: true
+      }
+
       const { data: cliente, error: erroCli } = await supabase
         .from('pessoas')
-        .insert([{ nome: nomeCliente, telefone: telefoneCliente, tipo: 'cliente' }])
+        .insert([payloadCliente])
         .select()
         .single()
+      
       if (erroCli) throw erroCli
 
+      // 2. Cria o Pedido
       const { data: pedido, error: erroPed } = await supabase
         .from('pedidos')
         .insert([{ cliente_id: cliente.id, vendedor_id: parseInt(vendedorSelecionado), valor_total: valorTotalCarrinho, status: 'Pendente' }])
@@ -99,6 +119,7 @@ export default function Home() {
         .single()
       if (erroPed) throw erroPed
 
+      // 3. Salva os Itens
       const itensBD = carrinho.map(item => ({
         pedido_id: pedido.id,
         produto_nome: item.produto.nome,
@@ -111,6 +132,7 @@ export default function Home() {
       const vendedorObj = listaVendedores.find(v => v.id.toString() === vendedorSelecionado)
       const nomeVendedor = vendedorObj ? vendedorObj.nome : 'Não informado'
 
+      // 4. Gerar PDF
       // @ts-ignore
       const html2pdf = (await import('html2pdf.js')).default
 
@@ -121,6 +143,8 @@ export default function Home() {
             <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
               <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3>
               <p style="margin: 5px 0;"><strong>Nome:</strong> ${nomeCliente}</p>
+              <p style="margin: 5px 0;"><strong>CPF/CNPJ:</strong> ${cpfCnpj}</p>
+              <p style="margin: 5px 0;"><strong>Localidade:</strong> ${cidade} - ${estado}</p>
               <p style="margin: 5px 0;"><strong>Telefone:</strong> ${telefoneCliente}</p>
             </div>
             <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
@@ -169,20 +193,14 @@ export default function Home() {
       await html2pdf().set(opcoesPdf).from(htmlPdf).save()
 
       alert('Pedido finalizado! O download do comprovante em PDF começará automaticamente.')
-      setCarrinho([])
-      setIsCarrinhoAberto(false)
-      setNomeCliente('')
-      setTelefoneCliente('')
-      setVendedorSelecionado('')
+      setCarrinho([]); setIsCarrinhoAberto(false); setNomeCliente(''); setTelefoneCliente(''); setVendedorSelecionado(''); setCpfCnpj(''); setCidade(''); setEstado(''); setTipoPessoa('Física')
     } catch (error: any) {
       alert(`Erro ao finalizar: ${error.message}`)
     }
     setFinalizando(false)
   }
 
-  const produtosFiltrados = categoriaAtiva === 'Todos' 
-    ? produtos 
-    : produtos.filter(p => p.categoria === categoriaAtiva)
+  const produtosFiltrados = categoriaAtiva === 'Todos' ? produtos : produtos.filter(p => p.categoria === categoriaAtiva)
 
   return (
     <main className="min-h-screen pb-12 bg-gray-50 text-gray-900 relative">
@@ -202,10 +220,7 @@ export default function Home() {
         </div>
       )}
 
-      <button 
-        onClick={() => setIsCarrinhoAberto(true)}
-        className="fixed bottom-6 right-6 bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 transition-transform hover:scale-110 z-40 flex items-center gap-2 font-bold"
-      >
+      <button onClick={() => setIsCarrinhoAberto(true)} className="fixed bottom-6 right-6 bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 transition-transform hover:scale-110 z-40 flex items-center gap-2 font-bold">
         🛒 <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full absolute -top-2 -right-2">{carrinho.length}</span>
       </button>
 
@@ -230,11 +245,7 @@ export default function Home() {
             <p className="text-gray-500 text-center col-span-full mt-10">Nenhum produto encontrado nesta categoria.</p>
           ) : (
             produtosFiltrados.map((produto) => (
-              <div 
-                key={produto.id} 
-                onClick={() => { setProdutoSelecionado(produto); setQuantidadeModal(1); }} // Reseta a quantidade ao abrir novo produto
-                className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:shadow-lg transition-shadow cursor-pointer"
-              >
+              <div key={produto.id} onClick={() => { setProdutoSelecionado(produto); setQuantidadeModal(1); }} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:shadow-lg transition-shadow cursor-pointer">
                 <div>
                   <div className="h-48 bg-gray-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
                     {produto.imagem_url ? <img src={produto.imagem_url} alt={produto.nome} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" /> : <span className="text-gray-400">Sem Imagem</span>}
@@ -264,8 +275,6 @@ export default function Home() {
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <p className="text-sm text-gray-500 mb-1">Preço unitário</p>
                 <p className="text-green-700 font-bold text-3xl mb-4">R$ {produtoSelecionado.preco.toFixed(2)}</p>
-                
-                {/* SELETOR DE QUANTIDADE DO MODAL */}
                 <div className="flex items-center gap-4 mb-4">
                   <span className="text-gray-700 font-medium text-sm">Quantidade:</span>
                   <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
@@ -274,7 +283,6 @@ export default function Home() {
                     <button onClick={() => setQuantidadeModal(prev => prev + 1)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition-colors">+</button>
                   </div>
                 </div>
-
                 <button onClick={() => adicionarAoCarrinho(produtoSelecionado, quantidadeModal)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg">
                   Adicionar ao Carrinho 🛒
                 </button>
@@ -301,8 +309,6 @@ export default function Home() {
                     <div key={idx} className="flex justify-between items-center border-b pb-4">
                       <div className="flex-1 pr-4">
                         <p className="font-semibold text-gray-800 leading-tight">{item.produto.nome}</p>
-                        
-                        {/* SELETOR DE QUANTIDADE DENTRO DO CARRINHO */}
                         <div className="flex items-center gap-3 mt-2">
                           <div className="flex items-center border border-gray-300 rounded-md overflow-hidden h-7">
                             <button onClick={() => alterarQuantidadeItem(item.produto.id, -1)} className="px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold">-</button>
@@ -312,7 +318,6 @@ export default function Home() {
                           <span className="text-xs text-gray-500">x R$ {item.produto.preco.toFixed(2)}</span>
                         </div>
                       </div>
-
                       <div className="flex flex-col items-end gap-2">
                         <p className="font-bold text-green-700">R$ {(item.produto.preco * item.quantidade).toFixed(2)}</p>
                         <button onClick={() => removerDoCarrinho(item.produto.id)} className="text-red-500 text-xs hover:underline bg-red-50 px-2 py-1 rounded">Remover</button>
@@ -325,27 +330,59 @@ export default function Home() {
                     <p className="text-3xl font-bold text-green-700">R$ {valorTotalCarrinho.toFixed(2)}</p>
                   </div>
 
-                  <form onSubmit={handleFinalizarCompra} className="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                    <h3 className="font-bold text-gray-800 mb-2">Finalizar Pedido</h3>
-                    <div>
-                      <label className="block text-xs font-medium mb-1">Seu Nome Completo</label>
-                      <input type="text" required value={nomeCliente} onChange={e => setNomeCliente(e.target.value)} className="w-full p-2 border rounded-md text-sm" placeholder="Ex: João Silva" />
+                  <form onSubmit={handleFinalizarCompra} className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <h3 className="font-bold text-gray-800 mb-2 border-b pb-2">Dados de Cadastro</h3>
+                    
+                    <div className="flex gap-2">
+                      <div className="w-1/3">
+                        <label className="block text-xs font-medium mb-1">Tipo</label>
+                        <select value={tipoPessoa} onChange={e => setTipoPessoa(e.target.value)} className="w-full p-2 border rounded-md text-xs bg-white">
+                          <option>Física</option>
+                          <option>Jurídica</option>
+                        </select>
+                      </div>
+                      <div className="w-2/3">
+                        <label className="block text-xs font-medium mb-1">CPF / CNPJ</label>
+                        <input type="text" required value={cpfCnpj} onChange={e => setCpfCnpj(e.target.value)} className="w-full p-2 border rounded-md text-xs" placeholder="000.000.000-00" />
+                      </div>
                     </div>
+
                     <div>
-                      <label className="block text-xs font-medium mb-1">Seu Telefone / WhatsApp</label>
-                      <input type="text" required value={telefoneCliente} onChange={e => setTelefoneCliente(e.target.value)} className="w-full p-2 border rounded-md text-sm" placeholder="(00) 00000-0000" />
+                      <label className="block text-xs font-medium mb-1">Nome / Razão Social</label>
+                      <input type="text" required value={nomeCliente} onChange={e => setNomeCliente(e.target.value)} className="w-full p-2 border rounded-md text-xs" placeholder="Nome completo" />
                     </div>
+
                     <div>
-                      <label className="block text-xs font-medium mb-1">Vendedor que te atendeu</label>
-                      <select required value={vendedorSelecionado} onChange={e => setVendedorSelecionado(e.target.value)} className="w-full p-2 border rounded-md text-sm bg-white">
-                        <option value="">Selecione um vendedor...</option>
+                      <label className="block text-xs font-medium mb-1">Telefone / WhatsApp</label>
+                      <input type="text" required value={telefoneCliente} onChange={e => setTelefoneCliente(e.target.value)} className="w-full p-2 border rounded-md text-xs" placeholder="(00) 00000-0000" />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <div className="w-2/3">
+                        <label className="block text-xs font-medium mb-1">Cidade</label>
+                        <input type="text" required value={cidade} onChange={e => setCidade(e.target.value)} className="w-full p-2 border rounded-md text-xs" placeholder="Sua cidade" />
+                      </div>
+                      <div className="w-1/3">
+                        <label className="block text-xs font-medium mb-1">Estado</label>
+                        <select required value={estado} onChange={e => setEstado(e.target.value)} className="w-full p-2 border rounded-md text-xs bg-white">
+                          <option value="">UF</option>
+                          <option value="PR">PR</option><option value="SP">SP</option><option value="SC">SC</option><option value="RS">RS</option><option value="MT">MT</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t mt-2">
+                      <label className="block text-xs font-medium mb-1 text-blue-700">Vendedor Responsável</label>
+                      <select required value={vendedorSelecionado} onChange={e => setVendedorSelecionado(e.target.value)} className="w-full p-2 border rounded-md text-sm bg-white border-blue-300">
+                        <option value="">Selecione...</option>
                         {listaVendedores.map(v => (
                           <option key={v.id} value={v.id}>{v.nome}</option>
                         ))}
                       </select>
                     </div>
+
                     <button type="submit" disabled={finalizando} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-md mt-4 disabled:opacity-50">
-                      {finalizando ? 'Processando Recibo...' : 'Confirmar e Gerar PDF'}
+                      {finalizando ? 'Processando...' : 'Confirmar e Gerar PDF'}
                     </button>
                   </form>
                 </div>
