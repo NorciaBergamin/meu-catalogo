@@ -2,14 +2,47 @@
 
 import { useState } from 'react'
 import { supabase } from '@/utils/supabase'
+import { GoogleGenAI } from '@google/genai'
 
 export default function AdminPanel() {
   const [nome, setNome] = useState('')
   const [preco, setPreco] = useState('')
   const [categoria, setCategoria] = useState('Churrasco')
+  const [descricao, setDescricao] = useState('')
   const [imagem, setImagem] = useState<File | null>(null)
   const [mensagem, setMensagem] = useState('')
   const [carregando, setCarregando] = useState(false)
+  const [gerandoIA, setGerandoIA] = useState(false)
+
+  const gerarDescricaoIA = async () => {
+    if (!nome) {
+      setMensagem('Digite o nome do produto primeiro para a IA saber o que criar!')
+      return
+    }
+    
+    setGerandoIA(true)
+    setMensagem('IA escrevendo...')
+    
+    try {
+      // Inicia o Gemini com a sua chave
+      const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY })
+      
+      // Comando exato que a IA vai receber
+      const prompt = `Atue como um especialista em marketing. Crie uma descrição comercial curta e altamente persuasiva (máximo de 3 frases) para um produto de e-commerce. O produto é: ${nome}. Categoria: ${categoria}. Foco em atrair o cliente e gerar vendas.`
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents: prompt,
+      })
+      
+      setDescricao(response.text || '')
+      setMensagem('Descrição gerada com sucesso!')
+    } catch (error) {
+      setMensagem('Erro ao gerar descrição com IA.')
+      console.error(error)
+    }
+    setGerandoIA(false)
+  }
 
   const handleSalvarProduto = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,7 +72,7 @@ export default function AdminPanel() {
 
     const { error } = await supabase
       .from('produtos')
-      .insert([{ nome, preco: precoNumerico, imagem_url: imagemUrl, categoria }])
+      .insert([{ nome, preco: precoNumerico, imagem_url: imagemUrl, categoria, descricao }])
 
     if (error) {
       setMensagem(`Erro ao salvar: ${error.message}`)
@@ -47,6 +80,7 @@ export default function AdminPanel() {
       setMensagem('Produto salvo com sucesso!')
       setNome('')
       setPreco('')
+      setDescricao('')
       setImagem(null)
     }
     setCarregando(false)
@@ -61,25 +95,50 @@ export default function AdminPanel() {
             <label className="block text-sm font-medium mb-1">Nome do Produto</label>
             <input type="text" required value={nome} onChange={(e) => setNome(e.target.value)} className="w-full p-2 border rounded-md" />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Preço (R$)</label>
-            <input type="text" required value={preco} onChange={(e) => setPreco(e.target.value)} className="w-full p-2 border rounded-md" placeholder="Ex: 99,90" />
+          
+          <div className="flex gap-4">
+            <div className="w-1/2">
+              <label className="block text-sm font-medium mb-1">Preço (R$)</label>
+              <input type="text" required value={preco} onChange={(e) => setPreco(e.target.value)} className="w-full p-2 border rounded-md" placeholder="Ex: 99,90" />
+            </div>
+            <div className="w-1/2">
+              <label className="block text-sm font-medium mb-1">Categoria</label>
+              <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full p-2 border rounded-md bg-white">
+                <option value="Churrasco">Churrasco</option>
+                <option value="Instrumentos">Instrumentos Musicais</option>
+                <option value="Aquarismo">Aquarismo</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">Categoria</label>
-            <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full p-2 border rounded-md bg-white">
-              <option value="Churrasco">Churrasco</option>
-              <option value="Instrumentos">Instrumentos Musicais</option>
-              <option value="Aquarismo">Aquarismo</option>
-              <option value="Outros">Outros</option>
-            </select>
+            <div className="flex justify-between items-end mb-1">
+              <label className="block text-sm font-medium">Descrição</label>
+              <button 
+                type="button" 
+                onClick={gerarDescricaoIA}
+                disabled={gerandoIA || !nome}
+                className="text-xs bg-purple-100 text-purple-700 font-bold px-2 py-1 rounded hover:bg-purple-200 disabled:opacity-50 transition"
+              >
+                {gerandoIA ? 'Gerando...' : '✨ Gerar com IA'}
+              </button>
+            </div>
+            <textarea 
+              rows={3} 
+              value={descricao} 
+              onChange={(e) => setDescricao(e.target.value)} 
+              className="w-full p-2 border rounded-md text-sm"
+              placeholder="Descreva o produto ou use o botão acima para gerar automaticamente."
+            />
           </div>
+
           <div>
             <label className="block text-sm font-medium mb-1">Foto do Produto</label>
             <input type="file" accept="image/*" onChange={(e) => setImagem(e.target.files?.[0] || null)} className="w-full p-2 border rounded-md bg-white" />
           </div>
           <button type="submit" disabled={carregando} className="w-full bg-blue-600 text-white font-bold py-2 rounded-md hover:bg-blue-700 disabled:opacity-50">
-            {carregando ? 'Enviando...' : 'Salvar Produto'}
+            {carregando ? 'Salvando...' : 'Salvar Produto'}
           </button>
         </form>
         {mensagem && <p className="mt-4 text-center font-medium text-green-600">{mensagem}</p>}
