@@ -154,7 +154,7 @@ export default function Home() {
         </div>
       `
 
-      const opcoesPdf = {
+      const opcoesPdf: any = {
         margin: 10,
         filename: `pedido_${pedido.id}_${nomeCliente.replace(/\s+/g, '_')}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
