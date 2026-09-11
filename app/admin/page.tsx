@@ -8,11 +8,11 @@ export default function AdminPanel() {
   const [abaAtiva, setAbaAtiva] = useState('produto')
   const [mensagem, setMensagem] = useState('')
   
-  // Listagens do Banco
   const [categoriasCadastradas, setCategoriasCadastradas] = useState<any[]>([])
   const [listaProdutos, setListaProdutos] = useState<any[]>([])
   const [listaBanners, setListaBanners] = useState<any[]>([])
-  const [listaVendedores, setListaVendedores] = useState<any[]>([]) // Novo estado
+  const [listaVendedores, setListaVendedores] = useState<any[]>([])
+  const [listaPedidos, setListaPedidos] = useState<any[]>([])
 
   async function carregarDados() {
     const { data: cat } = await supabase.from('categorias').select('*').order('nome')
@@ -26,9 +26,11 @@ export default function AdminPanel() {
     const { data: ban } = await supabase.from('banners').select('*').order('id', { ascending: false })
     if (ban) setListaBanners(ban)
 
-    // Busca os vendedores na tabela pessoas
     const { data: vend } = await supabase.from('pessoas').select('*').eq('tipo', 'vendedor').order('nome')
     if (vend) setListaVendedores(vend)
+
+    const { data: ped } = await supabase.from('pedidos').select('*').order('data_pedido', { ascending: false })
+    if (ped) setListaPedidos(ped)
   }
 
   useEffect(() => {
@@ -44,21 +46,20 @@ export default function AdminPanel() {
   const [carregandoProduto, setCarregandoProduto] = useState(false)
   const [gerandoIA, setGerandoIA] = useState(false)
 
-  // Estados Banner
+  // Estados Banner & Categoria
   const [tituloBanner, setTituloBanner] = useState('')
   const [imagemBanner, setImagemBanner] = useState<File | null>(null)
   const [carregandoBanner, setCarregandoBanner] = useState(false)
-
-  // Estados Categoria
   const [novaCategoria, setNovaCategoria] = useState('')
   const [carregandoCategoria, setCarregandoCategoria] = useState(false)
 
-  // Estados Vendedor (Novo)
+  // Estados Vendedor
   const [nomeVendedor, setNomeVendedor] = useState('')
   const [telefoneVendedor, setTelefoneVendedor] = useState('')
+  const [comissaoVendedor, setComissaoVendedor] = useState('')
+  const [idVendedorEdicao, setIdVendedorEdicao] = useState<number | null>(null)
   const [carregandoVendedor, setCarregandoVendedor] = useState(false)
 
-  // Exclusão Universal
   const excluirItem = async (tabela: string, id: number) => {
     if (!confirm(`Tem certeza que deseja excluir este item?`)) return
     const { error } = await supabase.from(tabela).delete().eq('id', id)
@@ -69,7 +70,6 @@ export default function AdminPanel() {
     }
   }
 
-  // IA
   const gerarDescricaoIA = async () => {
     if (!nome) return setMensagem('Digite o nome do produto primeiro!')
     setGerandoIA(true)
@@ -86,7 +86,6 @@ export default function AdminPanel() {
     setGerandoIA(false)
   }
 
-  // Funções de Salvamento
   const handleSalvarProduto = async (e: React.FormEvent) => {
     e.preventDefault()
     setCarregandoProduto(true)
@@ -100,9 +99,7 @@ export default function AdminPanel() {
       imagemUrl = data.publicUrl
     }
     const { error } = await supabase.from('produtos').insert([{ nome, preco: precoNumerico, imagem_url: imagemUrl, categoria, descricao }])
-    if (!error) {
-      setMensagem('Produto salvo!'); setNome(''); setPreco(''); setDescricao(''); setImagemProduto(null); carregarDados()
-    }
+    if (!error) { setMensagem('Produto salvo!'); setNome(''); setPreco(''); setDescricao(''); setImagemProduto(null); carregarDados() }
     setCarregandoProduto(false)
   }
 
@@ -115,9 +112,7 @@ export default function AdminPanel() {
     await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemBanner)
     const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq)
     const { error } = await supabase.from('banners').insert([{ titulo: tituloBanner, imagem_url: data.publicUrl }])
-    if (!error) {
-      setMensagem('Banner salvo!'); setTituloBanner(''); setImagemBanner(null); carregarDados()
-    }
+    if (!error) { setMensagem('Banner salvo!'); setTituloBanner(''); setImagemBanner(null); carregarDados() }
     setCarregandoBanner(false)
   }
 
@@ -125,43 +120,81 @@ export default function AdminPanel() {
     e.preventDefault()
     setCarregandoCategoria(true)
     const { error } = await supabase.from('categorias').insert([{ nome: novaCategoria }])
-    if (!error) {
-      setMensagem('Categoria criada!'); setNovaCategoria(''); carregarDados()
-    }
+    if (!error) { setMensagem('Categoria criada!'); setNovaCategoria(''); carregarDados() }
     setCarregandoCategoria(false)
   }
 
-  // Novo Salvamento: Vendedor
+  // --- FUNÇÕES DE EDIÇÃO DE VENDEDOR ---
+  const iniciarEdicaoVendedor = (vendedor: any) => {
+    setIdVendedorEdicao(vendedor.id)
+    setNomeVendedor(vendedor.nome)
+    setTelefoneVendedor(vendedor.telefone)
+    setComissaoVendedor(vendedor.comissao_percentual.toString())
+    setMensagem('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const cancelarEdicaoVendedor = () => {
+    setIdVendedorEdicao(null)
+    setNomeVendedor('')
+    setTelefoneVendedor('')
+    setComissaoVendedor('')
+    setMensagem('')
+  }
+
   const handleSalvarVendedor = async (e: React.FormEvent) => {
     e.preventDefault()
     setCarregandoVendedor(true)
-    const { error } = await supabase.from('pessoas').insert([{ nome: nomeVendedor, telefone: telefoneVendedor, tipo: 'vendedor' }])
-    if (!error) {
-      setMensagem('Vendedor cadastrado com sucesso!')
-      setNomeVendedor('')
-      setTelefoneVendedor('')
-      carregarDados()
+    const comissaoNumerica = parseFloat(comissaoVendedor.replace(',', '.')) || 0
+    
+    if (idVendedorEdicao) {
+      // Atualizar vendedor existente
+      const { error } = await supabase.from('pessoas').update({ 
+        nome: nomeVendedor, 
+        telefone: telefoneVendedor, 
+        comissao_percentual: comissaoNumerica 
+      }).eq('id', idVendedorEdicao)
+      
+      if (!error) {
+        setMensagem('Vendedor atualizado com sucesso!')
+        cancelarEdicaoVendedor()
+        carregarDados()
+      } else {
+        setMensagem(`Erro: ${error.message}`)
+      }
     } else {
-      setMensagem(`Erro: ${error.message}`)
+      // Cadastrar novo vendedor
+      const { error } = await supabase.from('pessoas').insert([{ 
+        nome: nomeVendedor, 
+        telefone: telefoneVendedor, 
+        tipo: 'vendedor',
+        comissao_percentual: comissaoNumerica 
+      }])
+      
+      if (!error) {
+        setMensagem('Vendedor cadastrado com sucesso!')
+        setNomeVendedor(''); setTelefoneVendedor(''); setComissaoVendedor(''); carregarDados()
+      } else {
+        setMensagem(`Erro: ${error.message}`)
+      }
     }
     setCarregandoVendedor(false)
   }
 
   return (
     <main className="min-h-screen p-8 bg-gray-50 text-gray-900">
-      <div className="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         
-        {/* Menu de Abas */}
         <div className="flex flex-wrap border-b border-gray-200 mb-6 text-sm">
-          <button onClick={() => { setAbaAtiva('produto'); setMensagem(''); }} className={`flex-1 py-2 font-semibold min-w-[100px] ${abaAtiva === 'produto' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Produtos</button>
-          <button onClick={() => { setAbaAtiva('banner'); setMensagem(''); }} className={`flex-1 py-2 font-semibold min-w-[100px] ${abaAtiva === 'banner' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Banners</button>
-          <button onClick={() => { setAbaAtiva('categoria'); setMensagem(''); }} className={`flex-1 py-2 font-semibold min-w-[100px] ${abaAtiva === 'categoria' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Categorias</button>
-          <button onClick={() => { setAbaAtiva('vendedor'); setMensagem(''); }} className={`flex-1 py-2 font-semibold min-w-[100px] ${abaAtiva === 'vendedor' ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-500'}`}>Vendedores</button>
+          <button onClick={() => { setAbaAtiva('produto'); setMensagem(''); }} className={`flex-1 py-3 font-semibold min-w-[100px] transition-colors ${abaAtiva === 'produto' ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/30' : 'text-gray-500 hover:bg-gray-50'}`}>Produtos</button>
+          <button onClick={() => { setAbaAtiva('banner'); setMensagem(''); }} className={`flex-1 py-3 font-semibold min-w-[100px] transition-colors ${abaAtiva === 'banner' ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/30' : 'text-gray-500 hover:bg-gray-50'}`}>Banners</button>
+          <button onClick={() => { setAbaAtiva('categoria'); setMensagem(''); }} className={`flex-1 py-3 font-semibold min-w-[100px] transition-colors ${abaAtiva === 'categoria' ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/30' : 'text-gray-500 hover:bg-gray-50'}`}>Categorias</button>
+          <button onClick={() => { setAbaAtiva('vendedor'); setMensagem(''); }} className={`flex-1 py-3 font-semibold min-w-[100px] transition-colors ${abaAtiva === 'vendedor' ? 'border-b-2 border-green-600 text-green-600 bg-green-50/30' : 'text-gray-500 hover:bg-gray-50'}`}>Vendedores</button>
+          <button onClick={() => { setAbaAtiva('relatorio'); setMensagem(''); }} className={`flex-1 py-3 font-semibold min-w-[100px] transition-colors ${abaAtiva === 'relatorio' ? 'border-b-2 border-purple-600 text-purple-600 bg-purple-50/30' : 'text-gray-500 hover:bg-gray-50'}`}>Relatórios</button>
         </div>
 
-        {/* Formulários Existentes Omitidos Visualmente (Eles continuam no código abaixo) */}
         {abaAtiva === 'produto' && (
-          <div>
+          <div className="max-w-2xl mx-auto">
             <form onSubmit={handleSalvarProduto} className="space-y-4 mb-8">
               <div><label className="block text-sm font-medium mb-1">Nome</label><input type="text" required value={nome} onChange={(e) => setNome(e.target.value)} className="w-full p-2 border rounded-md" /></div>
               <div className="flex gap-4">
@@ -197,7 +230,7 @@ export default function AdminPanel() {
         )}
 
         {abaAtiva === 'banner' && (
-          <div>
+          <div className="max-w-2xl mx-auto">
             <form onSubmit={handleSalvarBanner} className="space-y-4 mb-8">
               <div><label className="block text-sm mb-1">Título</label><input type="text" required value={tituloBanner} onChange={(e) => setTituloBanner(e.target.value)} className="w-full p-2 border rounded-md" /></div>
               <div><label className="block text-sm mb-1">Imagem</label><input type="file" required accept="image/*" onChange={(e) => setImagemBanner(e.target.files?.[0] || null)} className="w-full p-2 border rounded-md" /></div>
@@ -217,7 +250,7 @@ export default function AdminPanel() {
         )}
 
         {abaAtiva === 'categoria' && (
-          <div>
+          <div className="max-w-2xl mx-auto">
             <form onSubmit={handleSalvarCategoria} className="space-y-4 mb-8">
               <div><label className="block text-sm font-medium mb-1">Nova Categoria</label><input type="text" required value={novaCategoria} onChange={(e) => setNovaCategoria(e.target.value)} className="w-full p-2 border rounded-md" /></div>
               <button type="submit" disabled={carregandoCategoria} className="w-full bg-blue-600 text-white font-bold py-2 rounded-md">Salvar Categoria</button>
@@ -235,33 +268,96 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* NOVA ABA: VENDEDORES */}
         {abaAtiva === 'vendedor' && (
-          <div>
-            <form onSubmit={handleSalvarVendedor} className="space-y-4 mb-8">
+          <div className="max-w-2xl mx-auto">
+            <form onSubmit={handleSalvarVendedor} className={`space-y-4 mb-8 p-4 rounded-xl border ${idVendedorEdicao ? 'bg-blue-50/30 border-blue-200' : 'bg-green-50/30 border-green-100'}`}>
+              {idVendedorEdicao && <div className="text-blue-600 font-bold text-sm mb-2">Editando Vendedor</div>}
               <div>
                 <label className="block text-sm font-medium mb-1">Nome do Vendedor</label>
                 <input type="text" required value={nomeVendedor} onChange={(e) => setNomeVendedor(e.target.value)} className="w-full p-2 border rounded-md" placeholder="Ex: João (Matriz)" />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Telefone / WhatsApp</label>
-                <input type="text" required value={telefoneVendedor} onChange={(e) => setTelefoneVendedor(e.target.value)} className="w-full p-2 border rounded-md" placeholder="(00) 00000-0000" />
+              <div className="flex gap-4">
+                <div className="w-2/3">
+                  <label className="block text-sm font-medium mb-1">Telefone / WhatsApp</label>
+                  <input type="text" required value={telefoneVendedor} onChange={(e) => setTelefoneVendedor(e.target.value)} className="w-full p-2 border rounded-md" placeholder="(00) 00000-0000" />
+                </div>
+                <div className="w-1/3">
+                  <label className="block text-sm font-medium mb-1">Comissão (%)</label>
+                  <input type="number" step="0.1" required value={comissaoVendedor} onChange={(e) => setComissaoVendedor(e.target.value)} className="w-full p-2 border rounded-md" placeholder="Ex: 5" />
+                </div>
               </div>
-              <button type="submit" disabled={carregandoVendedor} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-md transition-colors">
-                Cadastrar Vendedor
-              </button>
+              <div className="flex gap-2">
+                <button type="submit" disabled={carregandoVendedor} className={`flex-1 text-white font-bold py-2 rounded-md transition-colors ${idVendedorEdicao ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}>
+                  {idVendedorEdicao ? 'Salvar Alterações' : 'Cadastrar Vendedor'}
+                </button>
+                {idVendedorEdicao && (
+                  <button type="button" onClick={cancelarEdicaoVendedor} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-md transition-colors">
+                    Cancelar
+                  </button>
+                )}
+              </div>
             </form>
 
             <h3 className="font-bold border-b pb-2 mb-4">Equipe de Vendas</h3>
             <ul className="space-y-2 text-sm">
               {listaVendedores.map(v => (
-                <li key={v.id} className="flex justify-between items-center bg-gray-50 p-2 rounded">
-                  <span><strong>{v.nome}</strong> - {v.telefone}</span>
-                  <button onClick={() => excluirItem('pessoas', v.id)} className="text-red-500 font-bold hover:underline">Excluir</button>
+                <li key={v.id} className="flex justify-between items-center bg-gray-50 p-3 rounded border border-gray-100">
+                  <div>
+                    <strong>{v.nome}</strong> <span className="text-gray-500">({v.telefone})</span>
+                    <p className="text-green-700 font-semibold text-xs mt-1">Comissão: {v.comissao_percentual}%</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => iniciarEdicaoVendedor(v)} className="text-blue-500 font-bold hover:underline">Editar</button>
+                    <button onClick={() => excluirItem('pessoas', v.id)} className="text-red-500 font-bold hover:underline">Excluir</button>
+                  </div>
                 </li>
               ))}
-              {listaVendedores.length === 0 && <p className="text-gray-500 italic">Nenhum vendedor cadastrado ainda.</p>}
             </ul>
+          </div>
+        )}
+
+        {abaAtiva === 'relatorio' && (
+          <div>
+            <h3 className="font-bold text-lg mb-1">Fechamento de Comissões</h3>
+            <p className="text-sm text-gray-500 border-b pb-4 mb-6">Relatório em tempo real das vendas realizadas e comissões geradas por cada vendedor.</p>
+            
+            <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-100 text-gray-700">
+                  <tr>
+                    <th className="p-4 font-semibold">Vendedor</th>
+                    <th className="p-4 font-semibold text-center">Taxa (%)</th>
+                    <th className="p-4 font-semibold text-right">Total Vendido</th>
+                    <th className="p-4 font-semibold text-right text-purple-700">Comissão a Pagar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {listaVendedores.map(vend => {
+                    const pedidosDesteVendedor = listaPedidos.filter(p => p.vendedor_id === vend.id)
+                    const totalVendido = pedidosDesteVendedor.reduce((acc, pedido) => acc + Number(pedido.valor_total), 0)
+                    const valorComissao = totalVendido * (vend.comissao_percentual / 100)
+
+                    return (
+                      <tr key={vend.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="p-4 font-medium text-gray-900">{vend.nome}</td>
+                        <td className="p-4 text-center text-gray-600">{vend.comissao_percentual}%</td>
+                        <td className="p-4 text-right text-blue-600 font-bold">R$ {totalVendido.toFixed(2)}</td>
+                        <td className="p-4 text-right text-green-600 font-bold bg-green-50/30">
+                          R$ {valorComissao.toFixed(2)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {listaVendedores.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-gray-500 italic">
+                        Nenhum vendedor cadastrado no sistema.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
