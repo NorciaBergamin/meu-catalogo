@@ -28,7 +28,7 @@ export default function AdminPanel() {
       const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY })
       
       // Comando exato que a IA vai receber
-      const prompt = `Atue como um especialista em marketing. Crie uma descrição comercial curta e altamente persuasiva (máximo de 3 frases) para um produto de e-commerce. O produto é: ${nome}. Categoria: ${categoria}. Foco em atrair o cliente e gerar vendas.`
+      const prompt = `... Foco em atrair o cliente e gerar vendas. Retorne APENAS o texto da descrição, sem frases introdutórias, sem aspas e sem explicações adicionais.`
       
       const response = await ai.models.generateContent({
         model: 'gemini-3.6-flash',
