@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/utils/supabase'
 
 export default function Home() {
-  // === ESTADOS DO CATÁLOGO ===
   const [produtos, setProdutos] = useState<any[]>([])
   const [banners, setBanners] = useState<any[]>([])
   const [listaCategorias, setListaCategorias] = useState<string[]>(['Todos'])
@@ -13,7 +12,6 @@ export default function Home() {
   const [bannerAtual, setBannerAtual] = useState(0)
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null)
 
-  // === ESTADOS DO CARRINHO E CHECKOUT ===
   const [carrinho, setCarrinho] = useState<any[]>([])
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false)
   const [listaVendedores, setListaVendedores] = useState<any[]>([])
@@ -22,7 +20,6 @@ export default function Home() {
   const [vendedorSelecionado, setVendedorSelecionado] = useState('')
   const [finalizando, setFinalizando] = useState(false)
 
-  // === CARREGAMENTO INICIAL ===
   useEffect(() => {
     async function carregarDados() {
       const { data: dadosProdutos } = await supabase.from('produtos').select('*')
@@ -34,7 +31,6 @@ export default function Home() {
       const { data: dadosCategorias } = await supabase.from('categorias').select('*').order('nome')
       if (dadosCategorias) setListaCategorias(['Todos', ...dadosCategorias.map(c => c.nome)])
 
-      // Busca os vendedores para o checkout
       const { data: dadosVendedores } = await supabase.from('pessoas').select('*').eq('tipo', 'vendedor').order('nome')
       if (dadosVendedores) setListaVendedores(dadosVendedores)
       
@@ -43,7 +39,6 @@ export default function Home() {
     carregarDados()
   }, [])
 
-  // === ROTAÇÃO DO BANNER ===
   useEffect(() => {
     if (banners.length === 0) return
     const intervalo = setInterval(() => {
@@ -52,7 +47,6 @@ export default function Home() {
     return () => clearInterval(intervalo)
   }, [banners.length])
 
-  // === FUNÇÕES DO CARRINHO ===
   const adicionarAoCarrinho = (produto: any) => {
     setCarrinho(prev => {
       const existe = prev.find(item => item.produto.id === produto.id)
@@ -71,7 +65,6 @@ export default function Home() {
 
   const valorTotalCarrinho = carrinho.reduce((acc, item) => acc + (item.produto.preco * item.quantidade), 0)
 
-  // === FINALIZAR PEDIDO ===
   const handleFinalizarCompra = async (e: React.FormEvent) => {
     e.preventDefault()
     if (carrinho.length === 0) return alert('Seu carrinho está vazio.')
@@ -95,7 +88,7 @@ export default function Home() {
         .single()
       if (erroPed) throw erroPed
 
-      // 3. Salva os Itens do Pedido
+      // 3. Salva os Itens
       const itensBD = carrinho.map(item => ({
         pedido_id: pedido.id,
         produto_nome: item.produto.nome,
@@ -105,8 +98,73 @@ export default function Home() {
       const { error: erroItens } = await supabase.from('itens_pedido').insert(itensBD)
       if (erroItens) throw erroItens
 
-      // Sucesso
-      alert('Pedido finalizado com sucesso! (Na próxima fase geraremos o PDF)')
+      // 4. PREPARAR E GERAR O PDF
+      const vendedorObj = listaVendedores.find(v => v.id.toString() === vendedorSelecionado)
+      const nomeVendedor = vendedorObj ? vendedorObj.nome : 'Não informado'
+
+      // Import dinâmico da biblioteca de PDF
+      // @ts-ignore
+      const html2pdf = (await import('html2pdf.js')).default
+
+      const htmlPdf = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h1 style="color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Pedido de Venda #${pedido.id}</h1>
+          
+          <div style="display: flex; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
+            <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3>
+              <p style="margin: 5px 0;"><strong>Nome:</strong> ${nomeCliente}</p>
+              <p style="margin: 5px 0;"><strong>Telefone:</strong> ${telefoneCliente}</p>
+            </div>
+            <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Vendedor</h3>
+              <p style="margin: 5px 0;"><strong>Responsável:</strong> ${nomeVendedor}</p>
+              <p style="margin: 5px 0;"><strong>Status:</strong> Aguardando Despacho</p>
+            </div>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <thead>
+              <tr style="background-color: #2563eb; color: white;">
+                <th style="padding: 12px; text-align: left;">Produto</th>
+                <th style="padding: 12px; text-align: center;">Qtd</th>
+                <th style="padding: 12px; text-align: right;">V. Unitário</th>
+                <th style="padding: 12px; text-align: right;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${carrinho.map(item => `
+                <tr style="border-bottom: 1px solid #e5e7eb;">
+                  <td style="padding: 12px;">${item.produto.nome}</td>
+                  <td style="padding: 12px; text-align: center;">${item.quantidade}</td>
+                  <td style="padding: 12px; text-align: right;">R$ ${item.produto.preco.toFixed(2)}</td>
+                  <td style="padding: 12px; text-align: right;">R$ ${(item.produto.preco * item.quantidade).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div style="margin-top: 20px; text-align: right; font-size: 18px;">
+            <strong>Total do Pedido: <span style="color: #166534;">R$ ${valorTotalCarrinho.toFixed(2)}</span></strong>
+          </div>
+          
+          <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #9ca3af;">
+            Este documento foi gerado automaticamente pelo Catálogo Online.
+          </div>
+        </div>
+      `
+
+      const opcoesPdf = {
+        margin: 10,
+        filename: `pedido_${pedido.id}_${nomeCliente.replace(/\s+/g, '_')}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }
+
+      await html2pdf().set(opcoesPdf).from(htmlPdf).save()
+
+      alert('Pedido finalizado! O download do comprovante em PDF começará automaticamente.')
       setCarrinho([])
       setIsCarrinhoAberto(false)
       setNomeCliente('')
@@ -125,7 +183,6 @@ export default function Home() {
   return (
     <main className="min-h-screen pb-12 bg-gray-50 text-gray-900 relative">
       
-      {/* BANNER */}
       {banners.length > 0 && (
         <div className="relative w-full h-[300px] md:h-[450px] bg-gray-900 overflow-hidden shadow-md">
           {banners.map((banner, index) => (
@@ -141,7 +198,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* BOTÃO FLUTUANTE DO CARRINHO */}
       <button 
         onClick={() => setIsCarrinhoAberto(true)}
         className="fixed bottom-6 right-6 bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 transition-transform hover:scale-110 z-40 flex items-center gap-2 font-bold"
@@ -154,7 +210,6 @@ export default function Home() {
         <p className="text-gray-600 mt-2">Confira nossos produtos disponíveis</p>
       </header>
 
-      {/* FILTROS */}
       <div className="flex flex-wrap justify-center gap-3 mb-10 px-4">
         {listaCategorias.map(cat => (
           <button key={cat} onClick={() => setCategoriaAtiva(cat)} className={`px-4 py-2 rounded-full font-medium transition shadow-sm ${categoriaAtiva === cat ? 'bg-blue-600 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
@@ -163,7 +218,6 @@ export default function Home() {
         ))}
       </div>
 
-      {/* VITRINE */}
       {carregando ? (
         <p className="text-center text-gray-500">Carregando catálogo...</p>
       ) : (
@@ -186,7 +240,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL DO PRODUTO */}
       {produtoSelecionado && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl relative flex flex-col md:flex-row max-h-[90vh]">
@@ -212,7 +265,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL DO CARRINHO DE COMPRAS E CHECKOUT */}
       {isCarrinhoAberto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex justify-end">
           <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-slide-in-right">
@@ -244,7 +296,6 @@ export default function Home() {
                     <p className="text-3xl font-bold text-green-700">R$ {valorTotalCarrinho.toFixed(2)}</p>
                   </div>
 
-                  {/* FORMULÁRIO DE CHECKOUT */}
                   <form onSubmit={handleFinalizarCompra} className="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
                     <h3 className="font-bold text-gray-800 mb-2">Finalizar Pedido</h3>
                     <div>
@@ -265,7 +316,7 @@ export default function Home() {
                       </select>
                     </div>
                     <button type="submit" disabled={finalizando} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-md mt-4 disabled:opacity-50">
-                      {finalizando ? 'Processando...' : 'Confirmar Pedido'}
+                      {finalizando ? 'Processando Recibo...' : 'Confirmar e Gerar PDF'}
                     </button>
                   </form>
                 </div>
