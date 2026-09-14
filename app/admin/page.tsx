@@ -131,7 +131,7 @@ export default function AdminPanel() {
     try {
       const prompt = `Atue como um especialista em marketing. Crie uma descrição comercial curta e altamente persuasiva (máximo de 3 frases) para um produto de e-commerce. O produto é: ${nome}. Categoria: ${categoria}. Foco em atrair o cliente e gerar vendas. Retorne APENAS o texto da descrição direto ao ponto, sem aspas.`
       
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -152,6 +152,7 @@ export default function AdminPanel() {
     } finally {
       setGerandoIA(false)
     }
+  
    }
 
   // --- FUNÇÕES DE BANNERS E CATEGORIAS ---
