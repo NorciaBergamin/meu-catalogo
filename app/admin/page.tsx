@@ -117,38 +117,30 @@ export default function AdminPanel() {
     setCarregandoProduto(false)
   }
 
- const gerarDescricaoIA = async () => {
+const gerarDescricaoIA = async () => {
     if (!nome) return setMensagem('⚠️ Digite o nome do produto primeiro para a IA saber sobre o que escrever!')
-    
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY
-    if (!apiKey) {
-      return setMensagem('⚠️ ERRO CRÍTICO: Chave da IA não encontrada.')
-    }
 
     setGerandoIA(true)
     setMensagem('✨ IA pensando e escrevendo...')
     
     try {
-      const prompt = `Atue como um especialista em marketing. Crie uma descrição comercial curta e altamente persuasiva (máximo de 3 frases) para um produto de e-commerce. O produto é: ${nome}. Categoria: ${categoria}. Foco em atrair o cliente e gerar vendas. Retorne APENAS o texto da descrição direto ao ponto, sem aspas.`
-      
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
+      const res = await fetch('/api/gerar-descricao', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        body: JSON.stringify({ nome, categoria })
       })
 
-      const data = await response.json()
-      
-      if (data.error) {
-        throw new Error(data.error.message)
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao comunicar com o servidor.')
       }
 
-      const textoGerado = data.candidates[0].content.parts[0].text
-      setDescricao(textoGerado.trim() || '')
+      setDescricao(data.descricao || '')
       setMensagem('✅ Descrição gerada com sucesso pela IA!')
     } catch (error: any) { 
-      console.error("Erro da API do Google:", error)
-      setMensagem(`❌ Erro na IA: ${error.message || 'Verifique o console.'}`) 
+      console.error("Erro:", error)
+      setMensagem(`❌ Erro na IA: ${error.message}`) 
     } finally {
       setGerandoIA(false)
     }
