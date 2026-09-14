@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/utils/supabase'
-import { GoogleGenAI } from '@google/genai'
 
 export default function AdminPanel() {
   // --- SISTEMA DE LOGIN ---
@@ -82,16 +81,13 @@ export default function AdminPanel() {
     if (!error) { setMensagem('Item excluído!'); carregarDados() }
   }
 
-  // --- FUNÇÕES DE PRODUTOS ---
+  // --- FUNÇÕES DE PRODUTOS E INTELIGÊNCIA ARTIFICIAL ---
   const iniciarEdicaoProduto = (p: any) => { 
     setIdProdutoEdicao(p.id)
     setNome(p.nome)
     setPreco(p.preco.toString())
-    
-    // CORREÇÃO INTELIGENTE: Verifica se a categoria antiga existe na lista nova. Se não existir, força a puxar a primeira opção correta!
     const catValida = categoriasCadastradas.find(c => c.nome === p.categoria)
     setCategoria(catValida ? p.categoria : (categoriasCadastradas.length > 0 ? categoriasCadastradas[0].nome : ''))
-
     setDescricao(p.descricao || '')
     setImagemProduto(null)
     setIsDestaque(p.is_destaque || false)
@@ -122,104 +118,67 @@ export default function AdminPanel() {
   }
 
   const gerarDescricaoIA = async () => {
-    if (!nome) return setMensagem('Digite o nome do produto primeiro!')
-    setGerandoIA(true); setMensagem('IA escrevendo...')
+    if (!nome) return setMensagem('⚠️ Digite o nome do produto primeiro para a IA saber sobre o que escrever!')
+    
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY
+    if (!apiKey) {
+      return setMensagem('⚠️ ERRO CRÍTICO: Chave da IA não encontrada. Verifique se você salvou o arquivo .env.local e REINICIOU o servidor, ou se adicionou na Vercel.')
+    }
+
+    setGerandoIA(true)
+    setMensagem('✨ IA pensando e escrevendo...')
+    
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY })
-      const prompt = `Atue como um especialista em marketing. Crie uma descrição comercial curta e altamente persuasiva (máximo de 3 frases) para um produto de e-commerce. O produto é: ${nome}. Categoria: ${categoria}. Foco em atrair o cliente e gerar vendas. Retorne APENAS o texto da descrição.`
-      const response = await ai.models.generateContent({ model: 'gemini-3.6-flash', contents: prompt })
-      setDescricao(response.text || ''); setMensagem('Descrição gerada!')
-    } catch (error) { setMensagem('Erro ao gerar IA.') }
-    setGerandoIA(false)
+      const prompt = `Atue como um especialista em marketing. Crie uma descrição comercial curta e altamente persuasiva (máximo de 3 frases) para um produto de e-commerce. O produto é: ${nome}. Categoria: ${categoria}. Foco em atrair o cliente e gerar vendas. Retorne APENAS o texto da descrição direto ao ponto, sem aspas.`
+      
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      })
+
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error.message)
+      }
+
+      const textoGerado = data.candidates[0].content.parts[0].text
+      setDescricao(textoGerado.trim() || '')
+      setMensagem('✅ Descrição gerada com sucesso pela IA!')
+    } catch (error: any) { 
+      console.error("Erro da API do Google:", error)
+      setMensagem(`❌ Erro na IA: Verifique a sua chave no .env.local e o console do navegador.`) 
+    } finally {
+      setGerandoIA(false)
+    }
   }
 
   // --- FUNÇÕES DE BANNERS E CATEGORIAS ---
-  const handleSalvarBanner = async (e: React.FormEvent) => {
-    e.preventDefault(); if (!imagemBanner) return; setCarregandoBanner(true); const ext = imagemBanner.name.split('.').pop(); const nomeArq = `banner_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemBanner); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq)
-    const { error } = await supabase.from('banners').insert([{ titulo: tituloBanner, imagem_url: data.publicUrl }])
-    if (!error) { setMensagem('Banner salvo!'); setTituloBanner(''); setImagemBanner(null); carregarDados() }
-    setCarregandoBanner(false)
-  }
-
-  const handleSalvarCategoria = async (e: React.FormEvent) => {
-    e.preventDefault(); setCarregandoCategoria(true); const { error } = await supabase.from('categorias').insert([{ nome: novaCategoria }])
-    if (!error) { setMensagem('Categoria criada!'); setNovaCategoria(''); carregarDados() }
-    setCarregandoCategoria(false)
-  }
+  const handleSalvarBanner = async (e: React.FormEvent) => { e.preventDefault(); if (!imagemBanner) return; setCarregandoBanner(true); const ext = imagemBanner.name.split('.').pop(); const nomeArq = `banner_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemBanner); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq); const { error } = await supabase.from('banners').insert([{ titulo: tituloBanner, imagem_url: data.publicUrl }]); if (!error) { setMensagem('Banner salvo!'); setTituloBanner(''); setImagemBanner(null); carregarDados() }; setCarregandoBanner(false) }
+  const handleSalvarCategoria = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoCategoria(true); const { error } = await supabase.from('categorias').insert([{ nome: novaCategoria }]); if (!error) { setMensagem('Categoria criada!'); setNovaCategoria(''); carregarDados() }; setCarregandoCategoria(false) }
 
   // --- FUNÇÕES DE VENDEDORES ---
   const iniciarEdicaoVendedor = (vendedor: any) => { setIdVendedorEdicao(vendedor.id); setNomeVendedor(vendedor.nome); setTelefoneVendedor(vendedor.telefone); setComissaoVendedor(vendedor.comissao_percentual.toString()); setSenhaVendedor(vendedor.senha || ''); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const cancelarEdicaoVendedor = () => { setIdVendedorEdicao(null); setNomeVendedor(''); setTelefoneVendedor(''); setComissaoVendedor(''); setSenhaVendedor('') }
-  
-  const handleSalvarVendedor = async (e: React.FormEvent) => {
-    e.preventDefault(); setCarregandoVendedor(true); const comissaoNumerica = parseFloat(comissaoVendedor.replace(',', '.')) || 0
-    if (idVendedorEdicao) {
-      const { error } = await supabase.from('pessoas').update({ nome: nomeVendedor, telefone: telefoneVendedor, comissao_percentual: comissaoNumerica, senha: senhaVendedor }).eq('id', idVendedorEdicao)
-      if (!error) { setMensagem('Vendedor atualizado!'); cancelarEdicaoVendedor(); carregarDados() }
-    } else {
-      const { error } = await supabase.from('pessoas').insert([{ nome: nomeVendedor, telefone: telefoneVendedor, tipo: 'vendedor', comissao_percentual: comissaoNumerica, senha: senhaVendedor }])
-      if (!error) { setMensagem('Vendedor cadastrado!'); cancelarEdicaoVendedor(); carregarDados() }
-    }
-    setCarregandoVendedor(false)
-  }
+  const handleSalvarVendedor = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoVendedor(true); const comissaoNumerica = parseFloat(comissaoVendedor.replace(',', '.')) || 0; if (idVendedorEdicao) { const { error } = await supabase.from('pessoas').update({ nome: nomeVendedor, telefone: telefoneVendedor, comissao_percentual: comissaoNumerica, senha: senhaVendedor }).eq('id', idVendedorEdicao); if (!error) { setMensagem('Vendedor atualizado!'); cancelarEdicaoVendedor(); carregarDados() } } else { const { error } = await supabase.from('pessoas').insert([{ nome: nomeVendedor, telefone: telefoneVendedor, tipo: 'vendedor', comissao_percentual: comissaoNumerica, senha: senhaVendedor }]); if (!error) { setMensagem('Vendedor cadastrado!'); cancelarEdicaoVendedor(); carregarDados() } } setCarregandoVendedor(false) }
 
   // --- FUNÇÕES DE PAGAMENTOS ---
   const iniciarEdicaoPagamento = (pag: any) => { setIdPagamentoEdicao(pag.id); setPagTitulo(pag.titulo); setPagDescricao(pag.descricao || ''); setPagValorMinimo(pag.valor_minimo ? pag.valor_minimo.toString() : ''); setPagOrdem(pag.ordem.toString()); setPagStatusAtivo(pag.status_ativo); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const cancelarEdicaoPagamento = () => { setIdPagamentoEdicao(null); setPagTitulo(''); setPagDescricao(''); setPagValorMinimo(''); setPagOrdem('1'); setPagStatusAtivo(true) }
-  
-  const handleSalvarPagamento = async (e: React.FormEvent) => {
-    e.preventDefault(); setCarregandoPagamento(true); const valorMinimoNum = pagValorMinimo ? parseFloat(pagValorMinimo.replace(',', '.')) : 0; const ordemNum = parseInt(pagOrdem) || 1
-    const payload = { titulo: pagTitulo, descricao: pagDescricao, valor_minimo: valorMinimoNum, ordem: ordemNum, status_ativo: pagStatusAtivo }
-    if (idPagamentoEdicao) {
-      const { error } = await supabase.from('formas_pagamento').update(payload).eq('id', idPagamentoEdicao)
-      if (!error) { setMensagem('Forma de Pagamento atualizada!'); cancelarEdicaoPagamento(); carregarDados() }
-    } else {
-      const { error } = await supabase.from('formas_pagamento').insert([payload])
-      if (!error) { setMensagem('Pagamento cadastrado!'); cancelarEdicaoPagamento(); carregarDados() }
-    }
-    setCarregandoPagamento(false)
-  }
+  const handleSalvarPagamento = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoPagamento(true); const valorMinimoNum = pagValorMinimo ? parseFloat(pagValorMinimo.replace(',', '.')) : 0; const ordemNum = parseInt(pagOrdem) || 1; const payload = { titulo: pagTitulo, descricao: pagDescricao, valor_minimo: valorMinimoNum, ordem: ordemNum, status_ativo: pagStatusAtivo }; if (idPagamentoEdicao) { const { error } = await supabase.from('formas_pagamento').update(payload).eq('id', idPagamentoEdicao); if (!error) { setMensagem('Forma de Pagamento atualizada!'); cancelarEdicaoPagamento(); carregarDados() } } else { const { error } = await supabase.from('formas_pagamento').insert([payload]); if (!error) { setMensagem('Pagamento cadastrado!'); cancelarEdicaoPagamento(); carregarDados() } } setCarregandoPagamento(false) }
 
   // --- FUNÇÕES DE CLIENTES ---
   const limparFormCli = () => { setIdCliEdicao(null); setCliRazao(''); setCliFantasia(''); setCliCpfCnpj(''); setCliTelefone(''); setCliCidade(''); setCliEstado(''); setCliRepresentante(''); setCliStatusAtivo(true); setCliTipoPessoa('Jurídica') }
   const iniciarEdicaoCliente = (c: any) => { setIdCliEdicao(c.id); setCliRazao(c.nome); setCliFantasia(c.nome_fantasia || ''); setCliCpfCnpj(c.cpf_cnpj || ''); setCliTelefone(c.telefone || ''); setCliCidade(c.cidade || ''); setCliEstado(c.estado || ''); setCliRepresentante(c.representante_id ? c.representante_id.toString() : ''); setCliStatusAtivo(c.status_ativo); setCliTipoPessoa(c.tipo_pessoa || 'Física'); setMostrarFormCli(true); setMostrarFiltrosCli(false) }
-
-  const handleSalvarCliente = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const payload = { nome: cliRazao, nome_fantasia: cliFantasia, cpf_cnpj: cliCpfCnpj, telefone: cliTelefone, cidade: cliCidade, estado: cliEstado, tipo_pessoa: cliTipoPessoa, status_ativo: cliStatusAtivo, representante_id: cliRepresentante ? parseInt(cliRepresentante) : null, tipo: 'cliente' }
-    if (idCliEdicao) {
-      const { error } = await supabase.from('pessoas').update(payload).eq('id', idCliEdicao)
-      if (!error) { setMensagem('Cliente atualizado!'); limparFormCli(); setMostrarFormCli(false); carregarDados() }
-    } else {
-      const { error } = await supabase.from('pessoas').insert([payload])
-      if (!error) { setMensagem('Cliente cadastrado!'); limparFormCli(); setMostrarFormCli(false); carregarDados() }
-    }
-  }
-
+  const handleSalvarCliente = async (e: React.FormEvent) => { e.preventDefault(); const payload = { nome: cliRazao, nome_fantasia: cliFantasia, cpf_cnpj: cliCpfCnpj, telefone: cliTelefone, cidade: cliCidade, estado: cliEstado, tipo_pessoa: cliTipoPessoa, status_ativo: cliStatusAtivo, representante_id: cliRepresentante ? parseInt(cliRepresentante) : null, tipo: 'cliente' }; if (idCliEdicao) { const { error } = await supabase.from('pessoas').update(payload).eq('id', idCliEdicao); if (!error) { setMensagem('Cliente atualizado!'); limparFormCli(); setMostrarFormCli(false); carregarDados() } } else { const { error } = await supabase.from('pessoas').insert([payload]); if (!error) { setMensagem('Cliente cadastrado!'); limparFormCli(); setMostrarFormCli(false); carregarDados() } } }
   const limparFiltrosCli = () => { setFiltroCliNome(''); setFiltroCliCpf(''); setFiltroCliRep(''); setFiltroCliCidade(''); setFiltroCliEstado(''); setFiltroCliStatus('') }
-  const clientesFiltrados = listaClientes.filter(c => {
-    const matchNome = filtroCliNome ? (c.nome?.toLowerCase().includes(filtroCliNome.toLowerCase()) || c.nome_fantasia?.toLowerCase().includes(filtroCliNome.toLowerCase())) : true
-    const matchCpf = filtroCliCpf ? c.cpf_cnpj?.includes(filtroCliCpf) : true
-    const matchRep = filtroCliRep ? c.representante_id?.toString() === filtroCliRep : true
-    const matchCid = filtroCliCidade ? c.cidade?.toLowerCase().includes(filtroCliCidade.toLowerCase()) : true
-    const matchEst = filtroCliEstado ? c.estado === filtroCliEstado : true
-    const matchStat = filtroCliStatus !== '' ? c.status_ativo?.toString() === filtroCliStatus : true
-    return matchNome && matchCpf && matchRep && matchCid && matchEst && matchStat
-  })
+  const clientesFiltrados = listaClientes.filter(c => { const matchNome = filtroCliNome ? (c.nome?.toLowerCase().includes(filtroCliNome.toLowerCase()) || c.nome_fantasia?.toLowerCase().includes(filtroCliNome.toLowerCase())) : true; const matchCpf = filtroCliCpf ? c.cpf_cnpj?.includes(filtroCliCpf) : true; const matchRep = filtroCliRep ? c.representante_id?.toString() === filtroCliRep : true; const matchCid = filtroCliCidade ? c.cidade?.toLowerCase().includes(filtroCliCidade.toLowerCase()) : true; const matchEst = filtroCliEstado ? c.estado === filtroCliEstado : true; const matchStat = filtroCliStatus !== '' ? c.status_ativo?.toString() === filtroCliStatus : true; return matchNome && matchCpf && matchRep && matchCid && matchEst && matchStat })
 
   // --- FUNÇÕES DE PEDIDOS E PDF ---
-  const atualizarStatusPedido = async (id: number, novoStatus: string) => {
-    const { error } = await supabase.from('pedidos').update({ status: novoStatus }).eq('id', id)
-    if (!error) { setMensagem(`Pedido #${id} atualizado para "${novoStatus}"`); carregarDados() }
-  }
-
-  const desbloquearPedido = (id: number) => {
-    if (usuarioLogado.tipo !== 'admin') return alert('Apenas o Administrador pode desbloquear pedidos.')
-    const senha = prompt('Acesso Restrito: Digite a senha do ADM para desbloquear (admin123)')
-    if (senha === 'admin123') setDesbloqueados([...desbloqueados, id])
-    else if (senha !== null) alert('Senha incorreta!')
-  }
-
+  const atualizarStatusPedido = async (id: number, novoStatus: string) => { const { error } = await supabase.from('pedidos').update({ status: novoStatus }).eq('id', id); if (!error) { setMensagem(`Pedido #${id} atualizado para "${novoStatus}"`); carregarDados() } }
+  const desbloquearPedido = (id: number) => { if (usuarioLogado.tipo !== 'admin') return alert('Apenas o Administrador pode desbloquear pedidos.'); const senha = prompt('Acesso Restrito: Digite a senha do ADM para desbloquear (admin123)'); if (senha === 'admin123') setDesbloqueados([...desbloqueados, id]); else if (senha !== null) alert('Senha incorreta!') }
+  
   const reimprimirPedido = async (pedido: any) => {
     setMensagem(`Buscando dados do Pedido #${pedido.id}...`)
     try {
@@ -227,48 +186,9 @@ export default function AdminPanel() {
       if (error) throw error
       const cliente = listaClientes.find(c => c.id === pedido.cliente_id)
       const vendedor = listaVendedores.find(v => v.id === pedido.vendedor_id)
-      
       // @ts-ignore
       const html2pdf = (await import('html2pdf.js')).default
-
-      const htmlPdf = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-          <h1 style="color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Pedido de Venda #${pedido.id} (2ª Via)</h1>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
-            <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
-              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3>
-              <p style="margin: 5px 0;"><strong>Nome:</strong> ${cliente?.nome || 'Desconhecido'}</p>
-              <p style="margin: 5px 0;"><strong>Telefone:</strong> ${cliente?.telefone || '-'}</p>
-            </div>
-            <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
-              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados Comerciais</h3>
-              <p style="margin: 5px 0;"><strong>Responsável:</strong> ${vendedor?.nome || 'Não informado'}</p>
-              <p style="margin: 5px 0;"><strong>Pagamento:</strong> ${pedido.forma_pagamento || '-'}</p>
-              <p style="margin: 5px 0;"><strong>Status:</strong> ${pedido.status}</p>
-            </div>
-          </div>
-          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-            <thead>
-              <tr style="background-color: #2563eb; color: white;">
-                <th style="padding: 12px; text-align: left;">Produto</th><th style="padding: 12px; text-align: center;">Qtd</th>
-                <th style="padding: 12px; text-align: right;">V. Unitário</th><th style="padding: 12px; text-align: right;">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itens?.map((item: any) => `
-                <tr style="border-bottom: 1px solid #e5e7eb;">
-                  <td style="padding: 12px;">${item.produto_nome}</td><td style="padding: 12px; text-align: center;">${item.quantidade}</td>
-                  <td style="padding: 12px; text-align: right;">R$ ${Number(item.preco_unitario).toFixed(2)}</td>
-                  <td style="padding: 12px; text-align: right;">R$ ${(Number(item.preco_unitario) * Number(item.quantidade)).toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <div style="margin-top: 20px; text-align: right; font-size: 18px;">
-            <strong>Total do Pedido: <span style="color: #166534;">R$ ${Number(pedido.valor_total).toFixed(2)}</span></strong>
-          </div>
-        </div>
-      `
+      const htmlPdf = `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333;"><h1 style="color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Pedido de Venda #${pedido.id} (2ª Via)</h1><div style="display: flex; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;"><div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;"><h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3><p style="margin: 5px 0;"><strong>Nome:</strong> ${cliente?.nome || 'Desconhecido'}</p><p style="margin: 5px 0;"><strong>Telefone:</strong> ${cliente?.telefone || '-'}</p></div><div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;"><h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados Comerciais</h3><p style="margin: 5px 0;"><strong>Responsável:</strong> ${vendedor?.nome || 'Não informado'}</p><p style="margin: 5px 0;"><strong>Pagamento:</strong> ${pedido.forma_pagamento || '-'}</p><p style="margin: 5px 0;"><strong>Status:</strong> ${pedido.status}</p></div></div><table style="width: 100%; border-collapse: collapse; margin-top: 20px;"><thead><tr style="background-color: #2563eb; color: white;"><th style="padding: 12px; text-align: left;">Produto</th><th style="padding: 12px; text-align: center;">Qtd</th><th style="padding: 12px; text-align: right;">V. Unitário</th><th style="padding: 12px; text-align: right;">Subtotal</th></tr></thead><tbody>${itens?.map((item: any) => `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 12px;">${item.produto_nome}</td><td style="padding: 12px; text-align: center;">${item.quantidade}</td><td style="padding: 12px; text-align: right;">R$ ${Number(item.preco_unitario).toFixed(2)}</td><td style="padding: 12px; text-align: right;">R$ ${(Number(item.preco_unitario) * Number(item.quantidade)).toFixed(2)}</td></tr>`).join('')}</tbody></table><div style="margin-top: 20px; text-align: right; font-size: 18px;"><strong>Total do Pedido: <span style="color: #166534;">R$ ${Number(pedido.valor_total).toFixed(2)}</span></strong></div></div>`
       const opcoesPdf: any = { margin: 10, filename: `reimpressao_pedido_${pedido.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
       await html2pdf().set(opcoesPdf).from(htmlPdf).save()
       setMensagem('Reimpressão gerada com sucesso!')
@@ -286,27 +206,9 @@ export default function AdminPanel() {
         const totalVendido = pedidosDesteVendedor.reduce((acc, pedido) => acc + Number(pedido.valor_total), 0)
         const valorComissao = totalVendido * (vend.comissao_percentual / 100)
         totalGeralVendido += totalVendido; totalGeralComissao += valorComissao
-        linhasTabela += `
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 12px;">${vend.nome}</td><td style="padding: 12px; text-align: center;">${vend.comissao_percentual}%</td>
-            <td style="padding: 12px; text-align: right;">R$ ${totalVendido.toFixed(2)}</td>
-            <td style="padding: 12px; text-align: right; color: #166534; font-weight: bold;">R$ ${valorComissao.toFixed(2)}</td>
-          </tr>
-        `
+        linhasTabela += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 12px;">${vend.nome}</td><td style="padding: 12px; text-align: center;">${vend.comissao_percentual}%</td><td style="padding: 12px; text-align: right;">R$ ${totalVendido.toFixed(2)}</td><td style="padding: 12px; text-align: right; color: #166534; font-weight: bold;">R$ ${valorComissao.toFixed(2)}</td></tr>`
       })
-      const htmlPdf = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-          <h1 style="color: #9333ea; text-align: center; border-bottom: 2px solid #9333ea; padding-bottom: 10px;">Fechamento de Comissões</h1>
-          <table style="width: 100%; border-collapse: collapse; margin-top: 30px;">
-            <thead style="background-color: #f3f4f6;"><tr><th style="padding: 12px; text-align: left;">Vendedor</th><th style="padding: 12px;">Taxa (%)</th><th style="padding: 12px; text-align: right;">Total Vendido</th><th style="padding: 12px; text-align: right;">Comissão a Pagar</th></tr></thead>
-            <tbody>${linhasTabela}</tbody>
-          </table>
-          <div style="margin-top: 40px; padding: 20px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-            <div style="display: flex; justify-content: space-between; font-size: 16px;"><span>Total Vendido Bruto:</span><strong>R$ ${totalGeralVendido.toFixed(2)}</strong></div>
-            <div style="display: flex; justify-content: space-between; font-size: 20px; margin-top: 15px; color: #9333ea;"><span>Total de Comissões a Pagar:</span><strong>R$ ${totalGeralComissao.toFixed(2)}</strong></div>
-          </div>
-        </div>
-      `
+      const htmlPdf = `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333;"><h1 style="color: #9333ea; text-align: center; border-bottom: 2px solid #9333ea; padding-bottom: 10px;">Fechamento de Comissões</h1><table style="width: 100%; border-collapse: collapse; margin-top: 30px;"><thead style="background-color: #f3f4f6;"><tr><th style="padding: 12px; text-align: left;">Vendedor</th><th style="padding: 12px;">Taxa (%)</th><th style="padding: 12px; text-align: right;">Total Vendido</th><th style="padding: 12px; text-align: right;">Comissão a Pagar</th></tr></thead><tbody>${linhasTabela}</tbody></table><div style="margin-top: 40px; padding: 20px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="display: flex; justify-content: space-between; font-size: 16px;"><span>Total Vendido Bruto:</span><strong>R$ ${totalGeralVendido.toFixed(2)}</strong></div><div style="display: flex; justify-content: space-between; font-size: 20px; margin-top: 15px; color: #9333ea;"><span>Total de Comissões a Pagar:</span><strong>R$ ${totalGeralComissao.toFixed(2)}</strong></div></div></div>`
       const opcoesPdf: any = { margin: 10, filename: `relatorio_comissoes.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
       await html2pdf().set(opcoesPdf).from(htmlPdf).save()
       setMensagem('PDF do relatório gerado com sucesso!')
@@ -369,7 +271,7 @@ export default function AdminPanel() {
                 <div className="w-1/2"><label className="block text-sm font-medium mb-1">Preço (R$)</label><input type="text" required value={preco} onChange={(e) => setPreco(e.target.value)} className="w-full p-2 border rounded-md bg-white" /></div>
                 <div className="w-1/2"><label className="block text-sm font-medium mb-1">Categoria</label><select required value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full p-2 border rounded-md bg-white">{categoriasCadastradas.map(cat => <option key={cat.id} value={cat.nome}>{cat.nome}</option>)}</select></div>
               </div>
-              <div className="flex justify-between items-center mt-2"><label className="block text-sm font-medium">Descrição</label><button type="button" onClick={gerarDescricaoIA} disabled={!nome} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">✨ IA</button></div>
+              <div className="flex justify-between items-center mt-2"><label className="block text-sm font-medium">Descrição</label><button type="button" onClick={gerarDescricaoIA} disabled={gerandoIA || !nome} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 font-bold rounded shadow-sm hover:bg-purple-200 transition-colors">✨ Gerar IA</button></div>
               <textarea rows={3} value={descricao} onChange={(e) => setDescricao(e.target.value)} className="w-full p-2 border rounded-md text-sm bg-white" />
               <div><label className="block text-sm font-medium mb-1">Foto (deixe em branco para manter a atual)</label><input type="file" accept="image/*" onChange={(e) => setImagemProduto(e.target.files?.[0] || null)} className="w-full p-2 border rounded-md bg-white" /></div>
               
@@ -542,7 +444,7 @@ export default function AdminPanel() {
               <form onSubmit={handleSalvarCliente} className="bg-white p-6 border border-teal-200 rounded-md mb-6 shadow-sm text-sm">
                 <h3 className="font-bold text-teal-700 mb-4 text-lg border-b pb-2">{idCliEdicao ? 'Editar Cliente' : 'Novo Cliente'}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div><label className="block text-gray-600 mb-1">Tipo Pessoa</label><select value={cliTipoPessoa} onChange={e=>setCliTipoPessoa(e.target.value)} className="w-full p-2 border rounded bg-white"><option>Física</option><option>Jurídica</option></select></div>
+                  <div><label className="block text-gray-600 mb-1">Tipo Pessoa</label><select value={cliTipoPessoa} onChange={e=>setCadTipoPessoa(e.target.value)} className="w-full p-2 border rounded bg-white"><option>Física</option><option>Jurídica</option></select></div>
                   <div className="md:col-span-2"><label className="block text-gray-600 mb-1">Razão Social / Nome</label><input type="text" required value={cliRazao} onChange={e=>setCliRazao(e.target.value)} className="w-full p-2 border rounded" /></div>
                   <div className="md:col-span-2"><label className="block text-gray-600 mb-1">Nome Fantasia</label><input type="text" value={cliFantasia} onChange={e=>setCliFantasia(e.target.value)} className="w-full p-2 border rounded" /></div>
                   <div><label className="block text-gray-600 mb-1">CPF / CNPJ</label><input type="text" value={cliCpfCnpj} onChange={e=>setCliCpfCnpj(e.target.value)} className="w-full p-2 border rounded" /></div>

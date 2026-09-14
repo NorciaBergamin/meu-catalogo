@@ -11,6 +11,9 @@ export default function Home() {
   const [carregando, setCarregando] = useState(true)
   const [bannerAtual, setBannerAtual] = useState(0)
   
+  // NOVO: Estado para a barra de pesquisa
+  const [busca, setBusca] = useState('')
+
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null)
   const [quantidadeModal, setQuantidadeModal] = useState(1) 
 
@@ -129,7 +132,7 @@ export default function Home() {
           </div>
         </div>
       `
-      const opcoesPdf: any = { margin: 10, filename: `pedido_${pedido.id}_comprovante.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
+      const opcoesPdf: any = { margin: 10, filename: `reimpressao_pedido_${pedido.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
       await html2pdf().set(opcoesPdf).from(htmlPdf).save()
     } catch (error: any) { alert(`Erro ao gerar PDF: ${error.message}`) }
   }
@@ -156,13 +159,24 @@ export default function Home() {
     setFinalizando(false)
   }
 
-  // Filtragem mais inteligente (ignora espaços em branco sobressalentes)
+  // NOVO: Lógica de filtro combinada (Categoria/Campanha + Barra de Pesquisa)
   const produtosFiltrados = produtos.filter(p => {
-    if (categoriaAtiva === 'Todos') return true
-    if (categoriaAtiva === '⭐ Destaques') return p.is_destaque
-    if (categoriaAtiva === '🔥 Promoções') return p.is_promocao
-    if (categoriaAtiva === '✨ Novidades') return p.is_novo
-    return p.categoria?.trim() === categoriaAtiva?.trim()
+    // 1. Filtra pela categoria/campanha clicada
+    let passaCategoria = false
+    if (categoriaAtiva === 'Todos') passaCategoria = true
+    else if (categoriaAtiva === '⭐ Destaques') passaCategoria = p.is_destaque
+    else if (categoriaAtiva === '🔥 Promoções') passaCategoria = p.is_promocao
+    else if (categoriaAtiva === '✨ Novidades') passaCategoria = p.is_novo
+    else passaCategoria = p.categoria?.trim() === categoriaAtiva?.trim()
+
+    // 2. Filtra pelo que foi digitado na busca (nome ou descrição)
+    let passaBusca = true
+    if (busca.trim() !== '') {
+      const termoBusca = busca.toLowerCase()
+      passaBusca = p.nome.toLowerCase().includes(termoBusca) || (p.descricao && p.descricao.toLowerCase().includes(termoBusca))
+    }
+
+    return passaCategoria && passaBusca
   })
 
   return (
@@ -197,16 +211,12 @@ export default function Home() {
 
       <div className="max-w-[1400px] mx-auto px-4 flex flex-col md:flex-row gap-8">
         
-        {/* COLUNA ESQUERDA (CATEGORIAS DO BANCO + BOTÃO TODOS) */}
+        {/* COLUNA ESQUERDA (CATEGORIAS) */}
         <aside className="w-full md:w-1/4 lg:w-1/5">
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm sticky top-24">
             <h3 className="font-bold text-gray-800 border-b border-gray-100 pb-3 mb-3 uppercase tracking-wider text-sm">Categorias</h3>
             <div className="flex flex-col gap-1">
-              {/* NOVO: Botão Todos fixo no topo do menu lateral */}
-              <button 
-                onClick={() => setCategoriaAtiva('Todos')} 
-                className={`text-left px-3 py-2 rounded-lg transition-colors text-sm font-bold ${categoriaAtiva === 'Todos' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
-              >
+              <button onClick={() => setCategoriaAtiva('Todos')} className={`text-left px-3 py-2 rounded-lg transition-colors text-sm font-bold ${categoriaAtiva === 'Todos' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}>
                 Todos os Produtos
               </button>
               
@@ -214,11 +224,7 @@ export default function Home() {
                 <p className="text-sm text-gray-500 px-3 mt-2">Nenhuma categoria.</p>
               ) : (
                 listaCategorias.map(cat => (
-                  <button 
-                    key={cat} 
-                    onClick={() => setCategoriaAtiva(cat)} 
-                    className={`text-left px-3 py-2 rounded-lg transition-colors text-sm font-medium ${categoriaAtiva === cat ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
-                  >
+                  <button key={cat} onClick={() => setCategoriaAtiva(cat)} className={`text-left px-3 py-2 rounded-lg transition-colors text-sm font-medium ${categoriaAtiva === cat ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
                     {cat}
                   </button>
                 ))
@@ -227,9 +233,22 @@ export default function Home() {
           </div>
         </aside>
 
-        {/* COLUNA DIREITA (FILTROS CAMPANHA + PRODUTOS) */}
+        {/* COLUNA DIREITA (BUSCA + FILTROS + PRODUTOS) */}
         <div className="w-full md:w-3/4 lg:w-4/5">
           
+          {/* BARRA DE PESQUISA */}
+          <div className="mb-6 relative">
+            <input 
+              type="text" 
+              placeholder="O que você está procurando?" 
+              value={busca} 
+              onChange={(e) => setBusca(e.target.value)} 
+              className="w-full p-4 pl-12 rounded-xl border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-700 font-medium"
+            />
+            <span className="absolute left-4 top-4 text-xl opacity-50">🔍</span>
+          </div>
+
+          {/* MARCADORES HORIZONTAIS (CAMPANHAS) */}
           <div className="flex flex-wrap gap-3 mb-8">
             {filtrosCampanha.map(cat => {
               let cor = 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'
@@ -241,7 +260,7 @@ export default function Home() {
               return (
                 <button 
                   key={cat} 
-                  onClick={() => setCategoriaAtiva(cat)} 
+                  onClick={() => {setCategoriaAtiva(cat); setBusca('')}} // Limpa a busca ao trocar de tag para não confundir o cliente
                   className={`px-5 py-2 rounded-full font-bold transition shadow-sm border text-sm ${categoriaAtiva === cat ? corAtivo : cor}`}
                 >
                   {cat}
@@ -250,6 +269,7 @@ export default function Home() {
             })}
           </div>
 
+          {/* GRID DE PRODUTOS */}
           {carregando ? (<p className="text-center text-gray-500">Carregando...</p>) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {produtosFiltrados.map((produto) => (
@@ -270,7 +290,12 @@ export default function Home() {
                   <p className="text-green-700 font-bold text-xl mt-2">R$ {produto.preco.toFixed(2)}</p>
                 </div>
               ))}
-              {produtosFiltrados.length === 0 && <p className="col-span-full text-center text-gray-500 mt-10">Nenhum produto encontrado nesta seção.</p>}
+              {produtosFiltrados.length === 0 && (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-xl font-medium text-gray-700">Nenhum produto encontrado.</p>
+                  <p className="text-gray-500 mt-2">Tente buscar por outro nome ou remova os filtros.</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -305,7 +330,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* GAVETA DO CARRINHO */}
+      {/* GAVETA DO CARRINHO E MODAIS DE LOGIN / MEUS PEDIDOS MANTIDOS IGUAIS */}
       {isCarrinhoAberto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex justify-end">
           <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col">
@@ -377,7 +402,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL: MEUS PEDIDOS */}
       {modalMeusPedidosAberto && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden relative max-h-[90vh] flex flex-col">
@@ -385,7 +409,6 @@ export default function Home() {
               <h2 className="text-2xl font-bold text-gray-800">Meus Pedidos</h2>
               <button onClick={() => setModalMeusPedidosAberto(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl z-10">✕</button>
             </div>
-            
             <div className="p-6 overflow-y-auto flex-1 bg-gray-50">
               {carregandoPedidos ? (
                 <p className="text-center text-gray-500">Buscando seu histórico...</p>
@@ -431,7 +454,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL DE LOGIN / CADASTRO */}
       {modalAuthAberto && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative">
