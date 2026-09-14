@@ -41,6 +41,24 @@ export default function AdminPanel() {
   const [listaPagamentos, setListaPagamentos] = useState<any[]>([])
   const [desbloqueados, setDesbloqueados] = useState<number[]>([])
 
+  // --- ESTADOS DA ABA "MINHA LOJA" (DADOS DA EMPRESA E UPLOAD DE LOGO) ---
+  const [dadosLoja, setDadosLoja] = useState({
+  nome: 'Procade Imagens Sacras',
+  whatsapp: '5544999999999',
+  logo: '',
+  endereco: 'Estrada Jussara, 210 - Centro',
+  cidadeEstado: 'Formosa do Oeste, PR',
+  cep: '85830-000',
+  instagram: '',
+  facebook: '',
+  // NOVOS CAMPOS INSTITUCIONAIS
+  quemSomos: '',
+  duvidasFrequentes: '',
+  termosPoliticas: ''
+})
+  const [logoArquivo, setLogoArquivo] = useState<File | null>(null)
+  const [carregandoLogo, setCarregandoLogo] = useState(false)
+
   // Estados Produto
   const [idProdutoEdicao, setIdProdutoEdicao] = useState<number | null>(null)
   const [nome, setNome] = useState(''); const [preco, setPreco] = useState(''); const [categoria, setCategoria] = useState(''); const [descricao, setDescricao] = useState(''); const [imagemProduto, setImagemProduto] = useState<File | null>(null); const [carregandoProduto, setCarregandoProduto] = useState(false); const [gerandoIA, setGerandoIA] = useState(false)
@@ -74,7 +92,45 @@ export default function AdminPanel() {
     const { data: pag } = await supabase.from('formas_pagamento').select('*').order('ordem', { ascending: true }); if (pag) setListaPagamentos(pag)
   }
 
-  useEffect(() => { carregarDados() }, [usuarioLogado])
+  useEffect(() => { 
+    carregarDados() 
+    const configSalva = localStorage.getItem('configLoja')
+    if (configSalva) {
+      try { setDadosLoja(JSON.parse(configSalva)) } catch (e) {}
+    }
+  }, [usuarioLogado])
+
+  // Função para salvar dados da loja e fazer upload da logo direto do PC
+  const salvarConfigLoja = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCarregandoLogo(true)
+    setMensagem('Enviando logo e salvando dados...')
+
+    let novaLogoUrl = dadosLoja.logo
+
+    if (logoArquivo) {
+      const ext = logoArquivo.name.split('.').pop()
+      const nomeArq = `logo_${Math.random()}.${ext}`
+      const { error: uploadError } = await supabase.storage.from('produtos-imagens').upload(nomeArq, logoArquivo)
+      
+      if (uploadError) {
+        alert(`Erro ao enviar logo: ${uploadError.message}`)
+        setCarregandoLogo(false)
+        return
+      }
+
+      const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq)
+      novaLogoUrl = data.publicUrl
+    }
+
+    const dadosAtualizados = { ...dadosLoja, logo: novaLogoUrl }
+    setDadosLoja(dadosAtualizados)
+    localStorage.setItem('configLoja', JSON.stringify(dadosAtualizados))
+    
+    setCarregandoLogo(false)
+    setLogoArquivo(null)
+    setMensagem('✅ Dados da loja e logo salvos com sucesso!')
+  }
 
   const excluirItem = async (tabela: string, id: number) => {
     if (!confirm(`Tem certeza que deseja excluir este item?`)) return
@@ -118,23 +174,23 @@ export default function AdminPanel() {
     setCarregandoProduto(false)
   }
 
-const gerarDescricaoIA = async () => {
-  if (!nome) return setMensagem('⚠️ Digite o nome do produto primeiro para a IA saber sobre o que escrever!')
+  const gerarDescricaoIA = async () => {
+    if (!nome) return setMensagem('⚠️ Digite o nome do produto primeiro para a IA saber sobre o que escrever!')
 
-  setGerandoIA(true)
-  setMensagem('✨ IA pensando e escrevendo...')
+    setGerandoIA(true)
+    setMensagem('✨ IA pensando e escrevendo...')
 
-  try {
-    const resultado = await gerarDescricaoAcao(nome, categoria)
-    setDescricao(resultado.descricao || '')
-    setMensagem('✅ Descrição gerada com sucesso pela IA!')
-  } catch (error: any) { 
-    console.error("Erro:", error)
-    setMensagem(`❌ Erro na IA: ${error.message}`) 
-  } finally {
-    setGerandoIA(false)
+    try {
+      const resultado = await gerarDescricaoAcao(nome, categoria)
+      setDescricao(resultado.descricao || '')
+      setMensagem('✅ Descrição gerada com sucesso pela IA!')
+    } catch (error: any) { 
+      console.error("Erro:", error)
+      setMensagem(`❌ Erro na IA: ${error.message}`) 
+    } finally {
+      setGerandoIA(false)
+    }
   }
-}
 
   // --- FUNÇÕES DE BANNERS E CATEGORIAS ---
   const handleSalvarBanner = async (e: React.FormEvent) => { e.preventDefault(); if (!imagemBanner) return; setCarregandoBanner(true); const ext = imagemBanner.name.split('.').pop(); const nomeArq = `banner_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemBanner); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq); const { error } = await supabase.from('banners').insert([{ titulo: tituloBanner, imagem_url: data.publicUrl }]); if (!error) { setMensagem('Banner salvo!'); setTituloBanner(''); setImagemBanner(null); carregarDados() }; setCarregandoBanner(false) }
@@ -197,8 +253,7 @@ const gerarDescricaoIA = async () => {
     } catch (error: any) { setMensagem(`Erro ao gerar PDF: ${error.message}`) }
   }
 
-  
- // --- TELA DE LOGIN ---
+  // --- TELA DE LOGIN ---
   if (!usuarioLogado) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -239,7 +294,7 @@ const gerarDescricaoIA = async () => {
         {/* CABEÇALHO E MENU */}
         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
           <div>
-            <h1 className="text-2xl font-bold uppercase text-gray-700">{abaAtiva}</h1>
+            <h1 className="text-2xl font-bold uppercase text-gray-700">{abaAtiva === 'minhaLoja' ? 'Minha Loja' : abaAtiva}</h1>
             <p className="text-sm text-gray-500">Logado como: <strong className="text-blue-600">{usuarioLogado.nome}</strong></p>
           </div>
           <button onClick={() => setUsuarioLogado(null)} className="text-sm bg-gray-100 hover:bg-red-100 text-gray-700 font-bold py-2 px-4 rounded-lg">Sair</button>
@@ -253,12 +308,123 @@ const gerarDescricaoIA = async () => {
               <button onClick={() => setAbaAtiva('categoria')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'categoria' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}>Categorias</button>
               <button onClick={() => setAbaAtiva('vendedor')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'vendedor' ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-500 hover:bg-gray-50'}`}>Vendedores</button>
               <button onClick={() => setAbaAtiva('pagamentos')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'pagamentos' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>Pagamentos</button>
+              <button onClick={() => setAbaAtiva('minhaLoja')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'minhaLoja' ? 'border-b-2 border-amber-600 text-amber-600' : 'text-gray-500 hover:bg-gray-50'}`}>🏢 Minha Loja</button>
             </>
           )}
           <button onClick={() => setAbaAtiva('clientes')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'clientes' ? 'border-b-2 border-teal-500 text-teal-600' : 'text-gray-500 hover:bg-gray-50'}`}>Clientes</button>
           <button onClick={() => setAbaAtiva('pedidos')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'pedidos' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:bg-gray-50'}`}>Gestão de Pedidos</button>
           <button onClick={() => setAbaAtiva('relatorio')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'relatorio' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500 hover:bg-gray-50'}`}>Relatórios</button>
         </div>
+
+        {/* --- ABA MINHA LOJA COM UPLOAD DE LOGO DO COMPUTADOR --- */}
+        {abaAtiva === 'minhaLoja' && usuarioLogado.tipo === 'admin' && (
+          <div className="max-w-2xl mx-auto bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 className="font-bold text-xl mb-2 text-gray-800">🏢 Configurações da Empresa (Loja)</h3>
+            <p className="text-sm text-gray-500 mb-6">Altere os dados abaixo e envie a logo do seu computador. Isso atualizará automaticamente o cabeçalho e o rodapé do seu catálogo.</p>
+
+            <form onSubmit={salvarConfigLoja} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">Nome da Empresa</label>
+                  <input type="text" value={dadosLoja.nome} onChange={e => setDadosLoja({...dadosLoja, nome: e.target.value})} className="w-full p-2 border rounded-md" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">WhatsApp de Vendas</label>
+                  <input type="text" value={dadosLoja.whatsapp} onChange={e => setDadosLoja({...dadosLoja, whatsapp: e.target.value})} placeholder="5544999999999" className="w-full p-2 border rounded-md" />
+                </div>
+              </div>
+
+              {/* UPLOAD DE LOGO DIRETO DO COMPUTADOR */}
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Logo da Empresa (Arquivo do Computador)</label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={e => setLogoArquivo(e.target.files?.[0] || null)} 
+                  className="w-full p-2 border rounded-md bg-white text-sm" 
+                />
+                {dadosLoja.logo && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Logo atual:</span>
+                    <img src={dadosLoja.logo} alt="Logo" className="h-10 object-contain border rounded p-1 bg-gray-50" />
+                  </div>
+                )}
+              </div>
+
+              <hr className="my-4" />
+              <h4 className="font-semibold text-gray-700">📍 Endereço (Exibido no Rodapé)</h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">Rua e Número</label>
+                  <input type="text" value={dadosLoja.endereco} onChange={e => setDadosLoja({...dadosLoja, endereco: e.target.value})} className="w-full p-2 border rounded-md" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">Cidade / Estado</label>
+                  <input type="text" value={dadosLoja.cidadeEstado} onChange={e => setDadosLoja({...dadosLoja, cidadeEstado: e.target.value})} className="w-full p-2 border rounded-md" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">CEP</label>
+                <input type="text" value={dadosLoja.cep} onChange={e => setDadosLoja({...dadosLoja, cep: e.target.value})} className="w-full p-2 border rounded-md" />
+              </div>
+
+              <hr className="my-4" />
+              <h4 className="font-semibold text-gray-700">🌐 Redes Sociais</h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">Link do Instagram</label>
+                  <input type="text" value={dadosLoja.instagram} onChange={e => setDadosLoja({...dadosLoja, instagram: e.target.value})} placeholder="https://instagram.com/sualoja" className="w-full p-2 border rounded-md" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">Link do Facebook</label>
+                  <input type="text" value={dadosLoja.facebook} onChange={e => setDadosLoja({...dadosLoja, facebook: e.target.value})} placeholder="https://facebook.com/sualoja" className="w-full p-2 border rounded-md" />
+                </div>
+              </div>
+              <hr className="my-4" />
+              <h4 className="font-semibold text-gray-700">📄 Páginas Institucionais (Rodapé)</h4>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Texto "Quem Somos"</label>
+                <textarea 
+                  rows={4} 
+                  value={dadosLoja.quemSomos} 
+                  onChange={e => setDadosLoja({...dadosLoja, quemSomos: e.target.value})} 
+                  placeholder="Escreva a história da empresa, missão e valores..." 
+                  className="w-full p-2 border rounded-md text-sm bg-white" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Texto "Dúvidas Frequentes"</label>
+                <textarea 
+                  rows={4} 
+                  value={dadosLoja.duvidasFrequentes} 
+                  onChange={e => setDadosLoja({...dadosLoja, duvidasFrequentes: e.target.value})} 
+                  placeholder="Responda as perguntas mais comuns dos clientes..." 
+                  className="w-full p-2 border rounded-md text-sm bg-white" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Texto "Termos e Políticas"</label>
+                <textarea 
+                  rows={4} 
+                  value={dadosLoja.termosPoliticas} 
+                  onChange={e => setDadosLoja({...dadosLoja, termosPoliticas: e.target.value})} 
+                  placeholder="Insira os termos de uso, política de privacidade e trocas..." 
+                  className="w-full p-2 border rounded-md text-sm bg-white" 
+                />
+              </div>
+
+              <button type="submit" disabled={carregandoLogo} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-md transition-colors mt-6 shadow-sm disabled:opacity-50">
+                {carregandoLogo ? 'Enviando logo e salvando...' : 'Salvar Configurações da Loja'}
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* --- ABA PRODUTOS --- */}
         {abaAtiva === 'produto' && usuarioLogado.tipo === 'admin' && (

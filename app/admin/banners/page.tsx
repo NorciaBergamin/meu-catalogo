@@ -68,3 +68,10 @@ export default function AdminBanners() {
     </main>
   )
 }
+{/* Botão na barra de abas do Admin */}
+<button 
+  onClick={() => setAbaAtiva('minhaLoja')} 
+  className={`pb-2 px-4 font-medium ${abaAtiva === 'minhaLoja' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
+>
+  🏢 Minha Loja / Dados Cadastrais
+</button>
