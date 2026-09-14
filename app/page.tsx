@@ -16,6 +16,8 @@ export default function Home() {
 
   const [carrinho, setCarrinho] = useState<any[]>([])
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false)
+  const [carrinhoCarregado, setCarrinhoCarregado] = useState(false) // TRAVA DE SEGURANÇA
+
   const [listaVendedores, setListaVendedores] = useState<any[]>([])
   const [listaPagamentos, setListaPagamentos] = useState<any[]>([])
   const [finalizando, setFinalizando] = useState(false)
@@ -30,7 +32,7 @@ export default function Home() {
   const [modoAuth, setModoAuth] = useState<'login' | 'cadastro'>('login')
   const [carregandoAuth, setCarregandoAuth] = useState(false)
 
-  // --- NOVO: ÁREA DO CLIENTE ---
+  // Área do Cliente
   const [modalMeusPedidosAberto, setModalMeusPedidosAberto] = useState(false)
   const [meusPedidos, setMeusPedidos] = useState<any[]>([])
   const [carregandoPedidos, setCarregandoPedidos] = useState(false)
@@ -67,13 +69,21 @@ export default function Home() {
 
     const clienteSalvo = localStorage.getItem('erp_cliente_sessao')
     if (clienteSalvo) setClienteLogado(JSON.parse(clienteSalvo))
+    
+    // Puxa o carrinho e DEPOIS libera o salvamento
     const carrinhoSalvo = localStorage.getItem('erp_carrinho_sessao')
-    if (carrinhoSalvo) setCarrinho(JSON.parse(carrinhoSalvo))
+    if (carrinhoSalvo) {
+      setCarrinho(JSON.parse(carrinhoSalvo))
+    }
+    setCarrinhoCarregado(true) 
   }, [])
 
+  // Só salva no navegador SE a trava inicial já foi liberada
   useEffect(() => {
-    localStorage.setItem('erp_carrinho_sessao', JSON.stringify(carrinho))
-  }, [carrinho])
+    if (carrinhoCarregado) {
+      localStorage.setItem('erp_carrinho_sessao', JSON.stringify(carrinho))
+    }
+  }, [carrinho, carrinhoCarregado])
 
   useEffect(() => {
     if (banners.length === 0) return
@@ -81,7 +91,6 @@ export default function Home() {
     return () => clearInterval(intervalo)
   }, [banners.length])
 
-  // --- FUNÇÕES DE AUTENTICAÇÃO E ÁREA DO CLIENTE ---
   const efetuarLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setCarregandoAuth(true)
@@ -112,7 +121,59 @@ export default function Home() {
     setCarregandoPedidos(false)
   }
 
-  // --- FUNÇÕES DO CARRINHO ---
+  const reimprimirPedidoCliente = async (pedido: any) => {
+    try {
+      const { data: itens, error } = await supabase.from('itens_pedido').select('*').eq('pedido_id', pedido.id)
+      if (error) throw error
+
+      const vendedor = listaVendedores.find(v => v.id === pedido.vendedor_id)
+      const nomeVendedor = vendedor ? vendedor.nome : 'Não informado'
+
+      // @ts-ignore
+      const html2pdf = (await import('html2pdf.js')).default
+
+      const htmlPdf = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h1 style="color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Pedido de Venda #${pedido.id} (2ª Via)</h1>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
+            <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3>
+              <p style="margin: 5px 0;"><strong>Nome:</strong> ${clienteLogado.nome}</p>
+              <p style="margin: 5px 0;"><strong>CPF/CNPJ:</strong> ${clienteLogado.cpf_cnpj}</p>
+              <p style="margin: 5px 0;"><strong>Localidade:</strong> ${clienteLogado.cidade} - ${clienteLogado.estado}</p>
+              <p style="margin: 5px 0;"><strong>Telefone:</strong> ${clienteLogado.telefone}</p>
+            </div>
+            <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados Comerciais</h3>
+              <p style="margin: 5px 0;"><strong>Vendedor:</strong> ${nomeVendedor}</p>
+              <p style="margin: 5px 0;"><strong>Pagamento:</strong> ${pedido.forma_pagamento || '-'}</p>
+              <p style="margin: 5px 0;"><strong>Status:</strong> ${pedido.status}</p>
+            </div>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <thead><tr style="background-color: #2563eb; color: white;"><th style="padding: 12px; text-align: left;">Produto</th><th style="padding: 12px; text-align: center;">Qtd</th><th style="padding: 12px; text-align: right;">V. Unitário</th><th style="padding: 12px; text-align: right;">Subtotal</th></tr></thead>
+            <tbody>
+              ${itens?.map((item: any) => `
+                <tr style="border-bottom: 1px solid #e5e7eb;">
+                  <td style="padding: 12px;">${item.produto_nome}</td><td style="padding: 12px; text-align: center;">${item.quantidade}</td>
+                  <td style="padding: 12px; text-align: right;">R$ ${Number(item.preco_unitario).toFixed(2)}</td>
+                  <td style="padding: 12px; text-align: right;">R$ ${(Number(item.preco_unitario) * Number(item.quantidade)).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div style="margin-top: 20px; text-align: right; font-size: 18px;">
+            <strong>Total do Pedido: <span style="color: #166534;">R$ ${Number(pedido.valor_total).toFixed(2)}</span></strong>
+          </div>
+        </div>
+      `
+      const opcoesPdf: any = { margin: 10, filename: `pedido_${pedido.id}_comprovante.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
+      await html2pdf().set(opcoesPdf).from(htmlPdf).save()
+    } catch (error: any) {
+      alert(`Erro ao gerar PDF: ${error.message}`)
+    }
+  }
+
   const adicionarAoCarrinho = (produto: any, quantidadeDesejada: number) => {
     setCarrinho(prev => {
       const existe = prev.find(item => item.produto.id === produto.id)
@@ -191,7 +252,6 @@ export default function Home() {
   return (
     <main className="min-h-screen pb-12 bg-gray-50 text-gray-900 relative">
       
-      {/* CABEÇALHO DO CATÁLOGO COM ÁREA DO CLIENTE */}
       <header className="bg-white border-b border-gray-200 shadow-sm py-4 px-6 flex justify-between items-center sticky top-0 z-30">
         <h1 className="text-2xl font-black text-blue-600 tracking-tighter">CATÁLOGO</h1>
         <div>
@@ -211,14 +271,12 @@ export default function Home() {
         </div>
       </header>
 
-      {/* BANNERS */}
       {banners.length > 0 && (
         <div className="relative w-full h-[250px] md:h-[400px] bg-gray-900 overflow-hidden">
           {banners.map((banner, index) => (<div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}><img src={banner.imagem_url} className="w-full h-full object-cover" /></div>))}
         </div>
       )}
 
-      {/* BOTÃO FLUTUANTE CARRINHO */}
       <button onClick={() => setIsCarrinhoAberto(true)} className="fixed bottom-6 right-6 bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 transition-transform hover:scale-110 z-40 flex items-center gap-2 font-bold">
         🛒 <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full absolute -top-2 -right-2">{carrinho.length}</span>
       </button>
@@ -245,7 +303,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL DO PRODUTO */}
       {produtoSelecionado && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl relative flex flex-col md:flex-row max-h-[90vh]">
@@ -274,7 +331,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* GAVETA DO CARRINHO */}
       {isCarrinhoAberto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex justify-end">
           <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col">
@@ -346,7 +402,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL: MEUS PEDIDOS (ÁREA DO CLIENTE) */}
       {modalMeusPedidosAberto && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden relative max-h-[90vh] flex flex-col">
@@ -367,7 +422,7 @@ export default function Home() {
                 <div className="space-y-4">
                   {meusPedidos.map(pedido => (
                     <div key={pedido.id} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-4">
-                      <div>
+                      <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <span className="font-black text-lg text-gray-900">#{pedido.id}</span>
                           <span className={`text-xs font-bold px-2 py-1 rounded-full border ${
@@ -382,9 +437,14 @@ export default function Home() {
                         <p className="text-sm text-gray-500">Realizado em {new Date(pedido.data_pedido).toLocaleDateString('pt-BR')}</p>
                         <p className="text-sm text-gray-500">Pagamento: {pedido.forma_pagamento || '-'}</p>
                       </div>
-                      <div className="text-left md:text-right">
-                        <p className="text-sm text-gray-500 mb-1">Total do Pedido</p>
-                        <p className="text-2xl font-bold text-green-700">R$ {Number(pedido.valor_total).toFixed(2)}</p>
+                      <div className="text-left md:text-right flex flex-col md:items-end gap-3">
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">Total do Pedido</p>
+                          <p className="text-2xl font-bold text-green-700">R$ {Number(pedido.valor_total).toFixed(2)}</p>
+                        </div>
+                        <button onClick={() => reimprimirPedidoCliente(pedido)} className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold py-1.5 px-4 rounded-md text-sm transition-colors flex items-center justify-center gap-2 w-full md:w-auto shadow-sm">
+                          🖨️ Baixar PDF
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -395,7 +455,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL DE LOGIN / CADASTRO DO CLIENTE */}
       {modalAuthAberto && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative">
@@ -404,7 +463,6 @@ export default function Home() {
               <button onClick={() => setModoAuth('login')} className={`flex-1 py-4 font-bold ${modoAuth === 'login' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-gray-500 hover:bg-gray-50'}`}>Entrar</button>
               <button onClick={() => setModoAuth('cadastro')} className={`flex-1 py-4 font-bold ${modoAuth === 'cadastro' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-gray-500 hover:bg-gray-50'}`}>Criar Conta</button>
             </div>
-
             <div className="p-6">
               {modoAuth === 'login' ? (
                 <form onSubmit={efetuarLogin} className="space-y-4">
