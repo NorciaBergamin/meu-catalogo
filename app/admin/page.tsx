@@ -216,6 +216,7 @@ export default function AdminPanel() {
   }
 
   // --- TELA DE LOGIN ---
+ // --- TELA DE LOGIN ---
   if (!usuarioLogado) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -223,9 +224,25 @@ export default function AdminPanel() {
           <div className="text-center mb-8"><h2 className="text-3xl font-black text-gray-900">ERP Login</h2></div>
           {erroLogin && <p className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-6 text-center font-medium">{erroLogin}</p>}
           <div className="space-y-4">
-            <input type="text" required value={loginUser} onChange={e => setLoginUser(e.target.value)} className="w-full p-3 border rounded-lg" placeholder="Usuário / Telefone" />
-            <input type="password" required value={loginSenha} onChange={e => setLoginSenha(e.target.value)} className="w-full p-3 border rounded-lg" placeholder="Senha" />
-            <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg">Entrar no Sistema</button>
+            <input 
+              type="text" 
+              required 
+              value={loginUser} 
+              onChange={e => setLoginUser(e.target.value)} 
+              className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-900 outline-none focus:ring-2 focus:ring-blue-500" 
+              placeholder="Usuário / Telefone" 
+            />
+            <input 
+              type="password" 
+              required 
+              value={loginSenha} 
+              onChange={e => setLoginSenha(e.target.value)} 
+              className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-900 outline-none focus:ring-2 focus:ring-blue-500" 
+              placeholder="Senha" 
+            />
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">
+              Entrar no Sistema
+            </button>
           </div>
         </form>
       </main>
