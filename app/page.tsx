@@ -209,16 +209,21 @@ export default function Home() {
       
       <div>
         {/* CABEÇALHO DINÂMICO (LOGO OU NOME + WHATSAPP) */}
-        <header className="bg-white border-b border-gray-200 shadow-sm py-4 px-6 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            {dadosLoja.logo ? (
-              <img src={dadosLoja.logo} alt={dadosLoja.nome} className="h-10 object-contain" />
-            ) : (
-              <h1 className="text-2xl font-black text-blue-600 tracking-tighter">{dadosLoja.nome}</h1>
-            )}
-          </div>
+<header className="bg-white border-b border-gray-200 shadow-sm py-4 px-6 flex justify-between items-center">
+  <div 
+    onClick={() => window.location.reload()} 
+    className="flex items-center gap-3 cursor-pointer" 
+    title="Atualizar página"
+  >
+    {dadosLoja.logo ? (
+      <img src={dadosLoja.logo} alt={dadosLoja.nome} className="h-10 object-contain" />
+    ) : (
+      <h1 className="text-2xl font-black text-blue-600 tracking-tighter">{dadosLoja.nome}</h1>
+    )}
+  </div>
 
-          <div className="flex items-center gap-4">
+  <div className="flex items-center gap-4">
+    {/* ... restante dos botões do cabeçalho ... */}
             {/* BOTÃO WHATSAPP DINÂMICO */}
             {dadosLoja.whatsapp && (
               <a 
