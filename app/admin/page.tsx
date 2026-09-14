@@ -444,7 +444,7 @@ export default function AdminPanel() {
               <form onSubmit={handleSalvarCliente} className="bg-white p-6 border border-teal-200 rounded-md mb-6 shadow-sm text-sm">
                 <h3 className="font-bold text-teal-700 mb-4 text-lg border-b pb-2">{idCliEdicao ? 'Editar Cliente' : 'Novo Cliente'}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div><label className="block text-gray-600 mb-1">Tipo Pessoa</label><select value={cliTipoPessoa} onChange={e=>setCadTipoPessoa(e.target.value)} className="w-full p-2 border rounded bg-white"><option>Física</option><option>Jurídica</option></select></div>
+                  <div><label className="block text-gray-600 mb-1">Tipo Pessoa</label><select value={cliTipoPessoa} onChange={e=>setCliTipoPessoa(e.target.value)} className="w-full p-2 border rounded bg-white"><option>Física</option><option>Jurídica</option></select></div>
                   <div className="md:col-span-2"><label className="block text-gray-600 mb-1">Razão Social / Nome</label><input type="text" required value={cliRazao} onChange={e=>setCliRazao(e.target.value)} className="w-full p-2 border rounded" /></div>
                   <div className="md:col-span-2"><label className="block text-gray-600 mb-1">Nome Fantasia</label><input type="text" value={cliFantasia} onChange={e=>setCliFantasia(e.target.value)} className="w-full p-2 border rounded" /></div>
                   <div><label className="block text-gray-600 mb-1">CPF / CNPJ</label><input type="text" value={cliCpfCnpj} onChange={e=>setCliCpfCnpj(e.target.value)} className="w-full p-2 border rounded" /></div>
