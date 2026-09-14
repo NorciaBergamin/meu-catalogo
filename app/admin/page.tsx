@@ -10,6 +10,7 @@ export default function AdminPanel() {
   const [loginUser, setLoginUser] = useState('')
   const [loginSenha, setLoginSenha] = useState('')
   const [erroLogin, setErroLogin] = useState('')
+  const [cliSenha, setCliSenha] = useState('')
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -207,9 +208,43 @@ export default function AdminPanel() {
   const handleSalvarPagamento = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoPagamento(true); const valorMinimoNum = pagValorMinimo ? parseFloat(pagValorMinimo.replace(',', '.')) : 0; const ordemNum = parseInt(pagOrdem) || 1; const payload = { titulo: pagTitulo, descricao: pagDescricao, valor_minimo: valorMinimoNum, ordem: ordemNum, status_ativo: pagStatusAtivo }; if (idPagamentoEdicao) { const { error } = await supabase.from('formas_pagamento').update(payload).eq('id', idPagamentoEdicao); if (!error) { setMensagem('Forma de Pagamento atualizada!'); cancelarEdicaoPagamento(); carregarDados() } } else { const { error } = await supabase.from('formas_pagamento').insert([payload]); if (!error) { setMensagem('Pagamento cadastrado!'); cancelarEdicaoPagamento(); carregarDados() } } setCarregandoPagamento(false) }
 
   // --- FUNÇÕES DE CLIENTES ---
-  const limparFormCli = () => { setIdCliEdicao(null); setCliRazao(''); setCliFantasia(''); setCliCpfCnpj(''); setCliTelefone(''); setCliCidade(''); setCliEstado(''); setCliRepresentante(''); setCliStatusAtivo(true); setCliTipoPessoa('Jurídica') }
-  const iniciarEdicaoCliente = (c: any) => { setIdCliEdicao(c.id); setCliRazao(c.nome); setCliFantasia(c.nome_fantasia || ''); setCliCpfCnpj(c.cpf_cnpj || ''); setCliTelefone(c.telefone || ''); setCliCidade(c.cidade || ''); setCliEstado(c.estado || ''); setCliRepresentante(c.representante_id ? c.representante_id.toString() : ''); setCliStatusAtivo(c.status_ativo); setCliTipoPessoa(c.tipo_pessoa || 'Física'); setMostrarFormCli(true); setMostrarFiltrosCli(false) }
-  const handleSalvarCliente = async (e: React.FormEvent) => { e.preventDefault(); const payload = { nome: cliRazao, nome_fantasia: cliFantasia, cpf_cnpj: cliCpfCnpj, telefone: cliTelefone, cidade: cliCidade, estado: cliEstado, tipo_pessoa: cliTipoPessoa, status_ativo: cliStatusAtivo, representante_id: cliRepresentante ? parseInt(cliRepresentante) : null, tipo: 'cliente' }; if (idCliEdicao) { const { error } = await supabase.from('pessoas').update(payload).eq('id', idCliEdicao); if (!error) { setMensagem('Cliente atualizado!'); limparFormCli(); setMostrarFormCli(false); carregarDados() } } else { const { error } = await supabase.from('pessoas').insert([payload]); if (!error) { setMensagem('Cliente cadastrado!'); limparFormCli(); setMostrarFormCli(false); carregarDados() } } }
+  const limparFormCli = () => { 
+  setIdCliEdicao(null); setCliRazao(''); setCliFantasia(''); setCliCpfCnpj(''); 
+  setCliTelefone(''); setCliCidade(''); setCliEstado(''); setCliRepresentante(''); 
+  setCliStatusAtivo(true); setCliTipoPessoa('Jurídica'); setCliSenha(''); 
+}
+ const iniciarEdicaoCliente = (c: any) => { 
+  setIdCliEdicao(c.id); setCliRazao(c.nome); setCliFantasia(c.nome_fantasia || ''); 
+  setCliCpfCnpj(c.cpf_cnpj || ''); setCliTelefone(c.telefone || ''); setCliCidade(c.cidade || ''); 
+  setCliEstado(c.estado || ''); setCliRepresentante(c.representante_id ? c.representante_id.toString() : ''); 
+  setCliStatusAtivo(c.status_ativo); setCliTipoPessoa(c.tipo_pessoa || 'Física'); 
+  setCliSenha(c.senha || ''); // Carrega a senha atual caso queira visualizar ou alterar
+  setMostrarFormCli(true); setMostrarFiltrosCli(false) 
+}
+  const handleSalvarCliente = async (e: React.FormEvent) => { 
+  e.preventDefault(); 
+  const payload: any = { 
+    nome: cliRazao, 
+    nome_fantasia: cliFantasia, 
+    cpf_cnpj: cliCpfCnpj, 
+    telefone: cliTelefone, 
+    cidade: cliCidade, 
+    estado: cliEstado, 
+    tipo_pessoa: cliTipoPessoa, 
+    status_ativo: cliStatusAtivo, 
+    representante_id: cliRepresentante ? parseInt(cliRepresentante) : null, 
+    tipo: 'cliente',
+    senha: cliSenha // Salva a nova senha definida pelo admin
+  }; 
+  
+  if (idCliEdicao) { 
+    const { error } = await supabase.from('pessoas').update(payload).eq('id', idCliEdicao); 
+    if (!error) { setMensagem('Cliente atualizado!'); limparFormCli(); setMostrarFormCli(false); carregarDados() } 
+  } else { 
+    const { error } = await supabase.from('pessoas').insert([payload]); 
+    if (!error) { setMensagem('Cliente cadastrado!'); limparFormCli(); setMostrarFormCli(false); carregarDados() } 
+  } 
+}
   const limparFiltrosCli = () => { setFiltroCliNome(''); setFiltroCliCpf(''); setFiltroCliRep(''); setFiltroCliCidade(''); setFiltroCliEstado(''); setFiltroCliStatus('') }
   const clientesFiltrados = listaClientes.filter(c => { const matchNome = filtroCliNome ? (c.nome?.toLowerCase().includes(filtroCliNome.toLowerCase()) || c.nome_fantasia?.toLowerCase().includes(filtroCliNome.toLowerCase())) : true; const matchCpf = filtroCliCpf ? c.cpf_cnpj?.includes(filtroCliCpf) : true; const matchRep = filtroCliRep ? c.representante_id?.toString() === filtroCliRep : true; const matchCid = filtroCliCidade ? c.cidade?.toLowerCase().includes(filtroCliCidade.toLowerCase()) : true; const matchEst = filtroCliEstado ? c.estado === filtroCliEstado : true; const matchStat = filtroCliStatus !== '' ? c.status_ativo?.toString() === filtroCliStatus : true; return matchNome && matchCpf && matchRep && matchCid && matchEst && matchStat })
 
@@ -617,6 +652,17 @@ export default function AdminPanel() {
                   <div><label className="block text-gray-600 mb-1">Cidade</label><input type="text" value={cliCidade} onChange={e=>setCliCidade(e.target.value)} className="w-full p-2 border rounded" /></div>
                   <div><label className="block text-gray-600 mb-1">Estado</label><select value={cliEstado} onChange={e=>setCliEstado(e.target.value)} className="w-full p-2 border rounded bg-white"><option value="">Selecione</option><option value="PR">PR</option><option value="SP">SP</option><option value="SC">SC</option><option value="RS">RS</option><option value="MT">MT</option></select></div>
                   <div><label className="block text-gray-600 mb-1">Representante</label><select value={cliRepresentante} onChange={e=>setCliRepresentante(e.target.value)} className="w-full p-2 border rounded bg-white"><option value="">Nenhum</option>{listaVendedores.map(v => <option key={v.id} value={v.id}>{v.nome}</option>)}</select></div>
+                  <div>
+                  <label className="block text-gray-600 mb-1">Senha de Acesso</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={cliSenha} 
+                    onChange={e => setCliSenha(e.target.value)} 
+                    placeholder="Defina ou altere a senha" 
+                    className="w-full p-2 border rounded" 
+                  />
+                </div>
                   <div className="flex items-end pb-2"><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={cliStatusAtivo} onChange={e=>setCliStatusAtivo(e.target.checked)} className="w-4 h-4" /> <span className="text-gray-600 font-bold">Cliente Ativo</span></label></div>
                 </div>
                 <div className="flex gap-2 justify-end"><button type="button" onClick={() => setMostrarFormCli(false)} className="bg-gray-300 px-4 py-2 rounded font-bold">Cancelar</button><button type="submit" className="bg-teal-500 hover:bg-teal-600 text-white px-6 py-2 rounded font-bold">Salvar Cliente</button></div>
