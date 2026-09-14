@@ -117,7 +117,7 @@ export default function AdminPanel() {
     setCarregandoProduto(false)
   }
 
-  const gerarDescricaoIA = async () => {
+ const gerarDescricaoIA = async () => {
     if (!nome) return setMensagem('⚠️ Digite o nome do produto primeiro para a IA saber sobre o que escrever!')
     
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY
@@ -131,7 +131,7 @@ export default function AdminPanel() {
     try {
       const prompt = `Atue como um especialista em marketing. Crie uma descrição comercial curta e altamente persuasiva (máximo de 3 frases) para um produto de e-commerce. O produto é: ${nome}. Categoria: ${categoria}. Foco em atrair o cliente e gerar vendas. Retorne APENAS o texto da descrição direto ao ponto, sem aspas.`
       
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
