@@ -41,34 +41,31 @@ export default function AdminPanel() {
   const [listaPagamentos, setListaPagamentos] = useState<any[]>([])
   const [desbloqueados, setDesbloqueados] = useState<number[]>([])
 
-  // Estados Produto, Banner, Categoria
+  // Estados Produto
   const [idProdutoEdicao, setIdProdutoEdicao] = useState<number | null>(null)
   const [nome, setNome] = useState(''); const [preco, setPreco] = useState(''); const [categoria, setCategoria] = useState(''); const [descricao, setDescricao] = useState(''); const [imagemProduto, setImagemProduto] = useState<File | null>(null); const [carregandoProduto, setCarregandoProduto] = useState(false); const [gerandoIA, setGerandoIA] = useState(false)
+  const [isDestaque, setIsDestaque] = useState(false)
+  const [isNovo, setIsNovo] = useState(false)
+  const [isPromocao, setIsPromocao] = useState(false)
+
+  // Estados Banners e Categorias
   const [tituloBanner, setTituloBanner] = useState(''); const [imagemBanner, setImagemBanner] = useState<File | null>(null); const [carregandoBanner, setCarregandoBanner] = useState(false)
   const [novaCategoria, setNovaCategoria] = useState(''); const [carregandoCategoria, setCarregandoCategoria] = useState(false)
 
   // Estados Vendedor
   const [nomeVendedor, setNomeVendedor] = useState(''); const [telefoneVendedor, setTelefoneVendedor] = useState(''); const [comissaoVendedor, setComissaoVendedor] = useState(''); const [senhaVendedor, setSenhaVendedor] = useState(''); const [idVendedorEdicao, setIdVendedorEdicao] = useState<number | null>(null); const [carregandoVendedor, setCarregandoVendedor] = useState(false)
 
-  // Estados Clientes (CRM)
-  const [mostrarFiltrosCli, setMostrarFiltrosCli] = useState(false); const [mostrarFormCli, setMostrarFormCli] = useState(false); const [idCliEdicao, setIdCliEdicao] = useState<number | null>(null)
-  const [cliTipoPessoa, setCliTipoPessoa] = useState('Jurídica'); const [cliRazao, setCliRazao] = useState(''); const [cliFantasia, setCliFantasia] = useState(''); const [cliCpfCnpj, setCliCpfCnpj] = useState(''); const [cliTelefone, setCliTelefone] = useState(''); const [cliCidade, setCliCidade] = useState(''); const [cliEstado, setCliEstado] = useState(''); const [cliRepresentante, setCliRepresentante] = useState(''); const [cliStatusAtivo, setCliStatusAtivo] = useState(true)
-  const [filtroCliNome, setFiltroCliNome] = useState(''); const [filtroCliCpf, setFiltroCliCpf] = useState(''); const [filtroCliRep, setFiltroCliRep] = useState(''); const [filtroCliCidade, setFiltroCliCidade] = useState(''); const [filtroCliEstado, setFiltroCliEstado] = useState(''); const [filtroCliStatus, setFiltroCliStatus] = useState('')
+  // Estados Pagamentos
+  const [idPagamentoEdicao, setIdPagamentoEdicao] = useState<number | null>(null); const [pagTitulo, setPagTitulo] = useState(''); const [pagDescricao, setPagDescricao] = useState(''); const [pagValorMinimo, setPagValorMinimo] = useState(''); const [pagOrdem, setPagOrdem] = useState('1'); const [pagStatusAtivo, setPagStatusAtivo] = useState(true); const [carregandoPagamento, setCarregandoPagamento] = useState(false)
 
-  // Estados Pagamentos (NOVO)
-  const [idPagamentoEdicao, setIdPagamentoEdicao] = useState<number | null>(null)
-  const [pagTitulo, setPagTitulo] = useState('')
-  const [pagDescricao, setPagDescricao] = useState('')
-  const [pagValorMinimo, setPagValorMinimo] = useState('')
-  const [pagOrdem, setPagOrdem] = useState('1')
-  const [pagStatusAtivo, setPagStatusAtivo] = useState(true)
-  const [carregandoPagamento, setCarregandoPagamento] = useState(false)
+  // Estados Clientes (CRM)
+  const [mostrarFiltrosCli, setMostrarFiltrosCli] = useState(false); const [mostrarFormCli, setMostrarFormCli] = useState(false); const [idCliEdicao, setIdCliEdicao] = useState<number | null>(null); const [cliTipoPessoa, setCliTipoPessoa] = useState('Jurídica'); const [cliRazao, setCliRazao] = useState(''); const [cliFantasia, setCliFantasia] = useState(''); const [cliCpfCnpj, setCliCpfCnpj] = useState(''); const [cliTelefone, setCliTelefone] = useState(''); const [cliCidade, setCliCidade] = useState(''); const [cliEstado, setCliEstado] = useState(''); const [cliRepresentante, setCliRepresentante] = useState(''); const [cliStatusAtivo, setCliStatusAtivo] = useState(true)
+  const [filtroCliNome, setFiltroCliNome] = useState(''); const [filtroCliCpf, setFiltroCliCpf] = useState(''); const [filtroCliRep, setFiltroCliRep] = useState(''); const [filtroCliCidade, setFiltroCliCidade] = useState(''); const [filtroCliEstado, setFiltroCliEstado] = useState(''); const [filtroCliStatus, setFiltroCliStatus] = useState('')
 
   // --- CARREGAMENTO DE DADOS ---
   async function carregarDados() {
     if (!usuarioLogado) return
-    const { data: cat } = await supabase.from('categorias').select('*').order('nome')
-    if (cat) { setCategoriasCadastradas(cat); if (cat.length > 0 && !categoria) setCategoria(cat[0].nome) }
+    const { data: cat } = await supabase.from('categorias').select('*').order('nome'); if (cat) { setCategoriasCadastradas(cat); if (cat.length > 0 && !categoria) setCategoria(cat[0].nome) }
     const { data: prod } = await supabase.from('produtos').select('*').order('id', { ascending: false }); if (prod) setListaProdutos(prod)
     const { data: ban } = await supabase.from('banners').select('*').order('id', { ascending: false }); if (ban) setListaBanners(ban)
     const { data: vend } = await supabase.from('pessoas').select('*').eq('tipo', 'vendedor').order('nome'); if (vend) setListaVendedores(usuarioLogado.tipo === 'admin' ? vend : vend.filter(v => v.id === usuarioLogado.id))
@@ -85,7 +82,45 @@ export default function AdminPanel() {
     if (!error) { setMensagem('Item excluído!'); carregarDados() }
   }
 
-  // --- FUNÇÕES DE PRODUTOS, BANNERS, CATEGORIAS E VENDEDORES ---
+  // --- FUNÇÕES DE PRODUTOS ---
+  const iniciarEdicaoProduto = (p: any) => { 
+    setIdProdutoEdicao(p.id)
+    setNome(p.nome)
+    setPreco(p.preco.toString())
+    
+    // CORREÇÃO INTELIGENTE: Verifica se a categoria antiga existe na lista nova. Se não existir, força a puxar a primeira opção correta!
+    const catValida = categoriasCadastradas.find(c => c.nome === p.categoria)
+    setCategoria(catValida ? p.categoria : (categoriasCadastradas.length > 0 ? categoriasCadastradas[0].nome : ''))
+
+    setDescricao(p.descricao || '')
+    setImagemProduto(null)
+    setIsDestaque(p.is_destaque || false)
+    setIsNovo(p.is_novo || false)
+    setIsPromocao(p.is_promocao || false)
+    window.scrollTo({ top: 0, behavior: 'smooth' }) 
+  }
+  
+  const cancelarEdicaoProduto = () => { 
+    setIdProdutoEdicao(null); setNome(''); setPreco(''); setDescricao(''); setImagemProduto(null);
+    setIsDestaque(false); setIsNovo(false); setIsPromocao(false);
+  }
+
+  const handleSalvarProduto = async (e: React.FormEvent) => {
+    e.preventDefault(); setCarregandoProduto(true); const precoNumerico = parseFloat(preco.replace(',', '.')); let imagemUrl = ''
+    if (imagemProduto) { const ext = imagemProduto.name.split('.').pop(); const nomeArq = `produto_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemProduto); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq); imagemUrl = data.publicUrl }
+    const payload: any = { nome, preco: precoNumerico, categoria, descricao, is_destaque: isDestaque, is_novo: isNovo, is_promocao: isPromocao }
+    if (imagemUrl) payload.imagem_url = imagemUrl
+
+    if (idProdutoEdicao) {
+      const { error } = await supabase.from('produtos').update(payload).eq('id', idProdutoEdicao)
+      if (!error) { setMensagem('Produto atualizado!'); cancelarEdicaoProduto(); carregarDados() }
+    } else {
+      const { error } = await supabase.from('produtos').insert([payload])
+      if (!error) { setMensagem('Produto salvo!'); cancelarEdicaoProduto(); carregarDados() }
+    }
+    setCarregandoProduto(false)
+  }
+
   const gerarDescricaoIA = async () => {
     if (!nome) return setMensagem('Digite o nome do produto primeiro!')
     setGerandoIA(true); setMensagem('IA escrevendo...')
@@ -98,24 +133,7 @@ export default function AdminPanel() {
     setGerandoIA(false)
   }
 
-  const iniciarEdicaoProduto = (p: any) => { setIdProdutoEdicao(p.id); setNome(p.nome); setPreco(p.preco.toString()); setCategoria(p.categoria); setDescricao(p.descricao || ''); setImagemProduto(null); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-  const cancelarEdicaoProduto = () => { setIdProdutoEdicao(null); setNome(''); setPreco(''); setDescricao(''); setImagemProduto(null) }
-
-  const handleSalvarProduto = async (e: React.FormEvent) => {
-    e.preventDefault(); setCarregandoProduto(true); const precoNumerico = parseFloat(preco.replace(',', '.')); let imagemUrl = ''
-    if (imagemProduto) { const ext = imagemProduto.name.split('.').pop(); const nomeArq = `produto_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemProduto); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq); imagemUrl = data.publicUrl }
-    if (idProdutoEdicao) {
-      const payload: any = { nome, preco: precoNumerico, categoria, descricao }
-      if (imagemUrl) payload.imagem_url = imagemUrl
-      const { error } = await supabase.from('produtos').update(payload).eq('id', idProdutoEdicao)
-      if (!error) { setMensagem('Produto atualizado!'); cancelarEdicaoProduto(); carregarDados() }
-    } else {
-      const { error } = await supabase.from('produtos').insert([{ nome, preco: precoNumerico, imagem_url: imagemUrl, categoria, descricao }])
-      if (!error) { setMensagem('Produto salvo!'); cancelarEdicaoProduto(); carregarDados() }
-    }
-    setCarregandoProduto(false)
-  }
-
+  // --- FUNÇÕES DE BANNERS E CATEGORIAS ---
   const handleSalvarBanner = async (e: React.FormEvent) => {
     e.preventDefault(); if (!imagemBanner) return; setCarregandoBanner(true); const ext = imagemBanner.name.split('.').pop(); const nomeArq = `banner_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemBanner); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq)
     const { error } = await supabase.from('banners').insert([{ titulo: tituloBanner, imagem_url: data.publicUrl }])
@@ -129,6 +147,7 @@ export default function AdminPanel() {
     setCarregandoCategoria(false)
   }
 
+  // --- FUNÇÕES DE VENDEDORES ---
   const iniciarEdicaoVendedor = (vendedor: any) => { setIdVendedorEdicao(vendedor.id); setNomeVendedor(vendedor.nome); setTelefoneVendedor(vendedor.telefone); setComissaoVendedor(vendedor.comissao_percentual.toString()); setSenhaVendedor(vendedor.senha || ''); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const cancelarEdicaoVendedor = () => { setIdVendedorEdicao(null); setNomeVendedor(''); setTelefoneVendedor(''); setComissaoVendedor(''); setSenhaVendedor('') }
   
@@ -144,33 +163,24 @@ export default function AdminPanel() {
     setCarregandoVendedor(false)
   }
 
-  // --- FUNÇÕES DE PAGAMENTO (NOVO) ---
-  const iniciarEdicaoPagamento = (pag: any) => {
-    setIdPagamentoEdicao(pag.id); setPagTitulo(pag.titulo); setPagDescricao(pag.descricao || ''); setPagValorMinimo(pag.valor_minimo ? pag.valor_minimo.toString() : ''); setPagOrdem(pag.ordem.toString()); setPagStatusAtivo(pag.status_ativo); window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  const cancelarEdicaoPagamento = () => {
-    setIdPagamentoEdicao(null); setPagTitulo(''); setPagDescricao(''); setPagValorMinimo(''); setPagOrdem('1'); setPagStatusAtivo(true)
-  }
-
+  // --- FUNÇÕES DE PAGAMENTOS ---
+  const iniciarEdicaoPagamento = (pag: any) => { setIdPagamentoEdicao(pag.id); setPagTitulo(pag.titulo); setPagDescricao(pag.descricao || ''); setPagValorMinimo(pag.valor_minimo ? pag.valor_minimo.toString() : ''); setPagOrdem(pag.ordem.toString()); setPagStatusAtivo(pag.status_ativo); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const cancelarEdicaoPagamento = () => { setIdPagamentoEdicao(null); setPagTitulo(''); setPagDescricao(''); setPagValorMinimo(''); setPagOrdem('1'); setPagStatusAtivo(true) }
+  
   const handleSalvarPagamento = async (e: React.FormEvent) => {
-    e.preventDefault(); setCarregandoPagamento(true)
-    const valorMinimoNum = pagValorMinimo ? parseFloat(pagValorMinimo.replace(',', '.')) : 0
-    const ordemNum = parseInt(pagOrdem) || 1
-
+    e.preventDefault(); setCarregandoPagamento(true); const valorMinimoNum = pagValorMinimo ? parseFloat(pagValorMinimo.replace(',', '.')) : 0; const ordemNum = parseInt(pagOrdem) || 1
     const payload = { titulo: pagTitulo, descricao: pagDescricao, valor_minimo: valorMinimoNum, ordem: ordemNum, status_ativo: pagStatusAtivo }
-
     if (idPagamentoEdicao) {
       const { error } = await supabase.from('formas_pagamento').update(payload).eq('id', idPagamentoEdicao)
       if (!error) { setMensagem('Forma de Pagamento atualizada!'); cancelarEdicaoPagamento(); carregarDados() }
     } else {
       const { error } = await supabase.from('formas_pagamento').insert([payload])
-      if (!error) { setMensagem('Forma de Pagamento cadastrada!'); cancelarEdicaoPagamento(); carregarDados() }
+      if (!error) { setMensagem('Pagamento cadastrado!'); cancelarEdicaoPagamento(); carregarDados() }
     }
     setCarregandoPagamento(false)
   }
 
-  // --- FUNÇÕES DE CLIENTES (CRM) ---
+  // --- FUNÇÕES DE CLIENTES ---
   const limparFormCli = () => { setIdCliEdicao(null); setCliRazao(''); setCliFantasia(''); setCliCpfCnpj(''); setCliTelefone(''); setCliCidade(''); setCliEstado(''); setCliRepresentante(''); setCliStatusAtivo(true); setCliTipoPessoa('Jurídica') }
   const iniciarEdicaoCliente = (c: any) => { setIdCliEdicao(c.id); setCliRazao(c.nome); setCliFantasia(c.nome_fantasia || ''); setCliCpfCnpj(c.cpf_cnpj || ''); setCliTelefone(c.telefone || ''); setCliCidade(c.cidade || ''); setCliEstado(c.estado || ''); setCliRepresentante(c.representante_id ? c.representante_id.toString() : ''); setCliStatusAtivo(c.status_ativo); setCliTipoPessoa(c.tipo_pessoa || 'Física'); setMostrarFormCli(true); setMostrarFiltrosCli(false) }
 
@@ -217,8 +227,10 @@ export default function AdminPanel() {
       if (error) throw error
       const cliente = listaClientes.find(c => c.id === pedido.cliente_id)
       const vendedor = listaVendedores.find(v => v.id === pedido.vendedor_id)
+      
       // @ts-ignore
       const html2pdf = (await import('html2pdf.js')).default
+
       const htmlPdf = `
         <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
           <h1 style="color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Pedido de Venda #${pedido.id} (2ª Via)</h1>
@@ -229,7 +241,7 @@ export default function AdminPanel() {
               <p style="margin: 5px 0;"><strong>Telefone:</strong> ${cliente?.telefone || '-'}</p>
             </div>
             <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
-              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Vendedor</h3>
+              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados Comerciais</h3>
               <p style="margin: 5px 0;"><strong>Responsável:</strong> ${vendedor?.nome || 'Não informado'}</p>
               <p style="margin: 5px 0;"><strong>Pagamento:</strong> ${pedido.forma_pagamento || '-'}</p>
               <p style="margin: 5px 0;"><strong>Status:</strong> ${pedido.status}</p>
@@ -360,22 +372,37 @@ export default function AdminPanel() {
               <div className="flex justify-between items-center mt-2"><label className="block text-sm font-medium">Descrição</label><button type="button" onClick={gerarDescricaoIA} disabled={!nome} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">✨ IA</button></div>
               <textarea rows={3} value={descricao} onChange={(e) => setDescricao(e.target.value)} className="w-full p-2 border rounded-md text-sm bg-white" />
               <div><label className="block text-sm font-medium mb-1">Foto (deixe em branco para manter a atual)</label><input type="file" accept="image/*" onChange={(e) => setImagemProduto(e.target.files?.[0] || null)} className="w-full p-2 border rounded-md bg-white" /></div>
-              <div className="flex gap-2">
-                <button type="submit" disabled={carregandoProduto} className={`flex-1 text-white font-bold py-2 rounded-md ${idProdutoEdicao ? 'bg-blue-600' : 'bg-green-600'}`}>{idProdutoEdicao ? 'Salvar Alterações' : 'Cadastrar Produto'}</button>
+              
+              <div className="flex flex-wrap gap-6 mt-4 p-4 border border-yellow-200 bg-yellow-50 rounded-lg">
+                <h4 className="w-full text-xs font-bold text-yellow-800 mb-1 uppercase">Marcadores de Campanha</h4>
+                <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800"><input type="checkbox" checked={isDestaque} onChange={e=>setIsDestaque(e.target.checked)} className="w-5 h-5 accent-blue-600" /> ⭐ Destaque</label>
+                <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800"><input type="checkbox" checked={isNovo} onChange={e=>setIsNovo(e.target.checked)} className="w-5 h-5 accent-green-600" /> ✨ Novidade</label>
+                <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800"><input type="checkbox" checked={isPromocao} onChange={e=>setIsPromocao(e.target.checked)} className="w-5 h-5 accent-red-600" /> 🔥 Promoção</label>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <button type="submit" disabled={carregandoProduto} className={`flex-1 text-white font-bold py-3 rounded-md ${idProdutoEdicao ? 'bg-blue-600' : 'bg-green-600'}`}>{idProdutoEdicao ? 'Salvar Alterações' : 'Cadastrar Produto'}</button>
                 {idProdutoEdicao && <button type="button" onClick={cancelarEdicaoProduto} className="bg-gray-300 px-4 py-2 rounded-md font-bold">Cancelar</button>}
               </div>
             </form>
+            
             <h3 className="font-bold border-b pb-2 mb-4">Painel de Produtos Cadastrados</h3>
             <div className="overflow-x-auto border border-gray-200 shadow-sm rounded-lg">
               <table className="w-full text-sm text-left whitespace-nowrap">
                 <thead className="bg-gray-100 text-gray-700">
-                  <tr><th className="p-3 border-r">Foto</th><th className="p-3 border-r">Nome</th><th className="p-3 border-r">Categoria</th><th className="p-3 border-r">Preço</th><th className="p-3 text-center">Ações</th></tr>
+                  <tr><th className="p-3 border-r">Foto</th><th className="p-3 border-r">Nome</th><th className="p-3 border-r">Tags</th><th className="p-3 border-r">Preço</th><th className="p-3 text-center">Ações</th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {listaProdutos.map(p => (
                     <tr key={p.id} className="hover:bg-gray-50">
                       <td className="p-3 border-r w-16">{p.imagem_url ? <img src={p.imagem_url} className="w-10 h-10 object-cover rounded" /> : <div className="w-10 h-10 bg-gray-200 rounded"></div>}</td>
-                      <td className="p-3 border-r font-medium text-gray-900">{p.nome}</td><td className="p-3 border-r text-gray-600">{p.categoria}</td><td className="p-3 border-r font-bold text-green-700">R$ {p.preco.toFixed(2)}</td>
+                      <td className="p-3 border-r font-medium text-gray-900">{p.nome} <span className="block text-xs font-normal text-gray-500">{p.categoria}</span></td>
+                      <td className="p-3 border-r flex flex-wrap gap-1 items-center h-full pt-3">
+                        {p.is_destaque && <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded font-bold">⭐</span>}
+                        {p.is_novo && <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded font-bold">✨</span>}
+                        {p.is_promocao && <span className="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded font-bold">🔥</span>}
+                      </td>
+                      <td className="p-3 border-r font-bold text-green-700">R$ {p.preco.toFixed(2)}</td>
                       <td className="p-3 text-center flex justify-center gap-2 pt-4">
                         <button onClick={() => iniciarEdicaoProduto(p)} className="bg-blue-500 text-white px-3 py-1 rounded text-xs font-bold">Editar</button>
                         <button onClick={() => excluirItem('produtos', p.id)} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold">Excluir</button>
@@ -401,8 +428,7 @@ export default function AdminPanel() {
             <ul className="space-y-2">
               {listaBanners.map(b => (
                 <li key={b.id} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                  <span>{b.titulo}</span>
-                  <button onClick={() => excluirItem('banners', b.id)} className="text-red-500 font-bold hover:underline">Excluir</button>
+                  <span>{b.titulo}</span><button onClick={() => excluirItem('banners', b.id)} className="text-red-500 font-bold hover:underline">Excluir</button>
                 </li>
               ))}
             </ul>
@@ -420,8 +446,7 @@ export default function AdminPanel() {
             <ul className="space-y-2 text-sm">
               {categoriasCadastradas.map(c => (
                 <li key={c.id} className="flex justify-between items-center bg-gray-50 p-2 rounded">
-                  <span>{c.nome}</span>
-                  <button onClick={() => excluirItem('categorias', c.id)} className="text-red-500 font-bold hover:underline">Excluir</button>
+                  <span>{c.nome}</span><button onClick={() => excluirItem('categorias', c.id)} className="text-red-500 font-bold hover:underline">Excluir</button>
                 </li>
               ))}
             </ul>
@@ -456,55 +481,36 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* --- ABA FORMAS DE PAGAMENTO (NOVA) --- */}
+        {/* --- ABA FORMAS DE PAGAMENTO --- */}
         {abaAtiva === 'pagamentos' && usuarioLogado.tipo === 'admin' && (
           <div>
             <form onSubmit={handleSalvarPagamento} className={`space-y-4 mb-8 p-4 rounded-xl border ${idPagamentoEdicao ? 'bg-indigo-50/50 border-indigo-200' : 'bg-gray-50 border-gray-200'}`}>
               {idPagamentoEdicao && <div className="text-indigo-600 font-bold text-sm mb-2">Editando Forma de Pagamento</div>}
-              
               <div className="flex gap-4">
                 <div className="w-1/2"><label className="block text-sm font-medium mb-1">Título</label><input type="text" required value={pagTitulo} onChange={(e) => setPagTitulo(e.target.value)} className="w-full p-2 border rounded-md bg-white" placeholder="Ex: Cartão de Crédito até 10x" /></div>
                 <div className="w-1/2"><label className="block text-sm font-medium mb-1">Descrição</label><input type="text" value={pagDescricao} onChange={(e) => setPagDescricao(e.target.value)} className="w-full p-2 border rounded-md bg-white" placeholder="Ex: Acima de R$ 3.800,00" /></div>
               </div>
-
               <div className="flex gap-4 items-end">
                 <div className="w-1/3"><label className="block text-sm font-medium mb-1">Val. Mínimo (R$)</label><input type="text" value={pagValorMinimo} onChange={(e) => setPagValorMinimo(e.target.value)} className="w-full p-2 border rounded-md bg-white" placeholder="0,00" /></div>
                 <div className="w-1/3"><label className="block text-sm font-medium mb-1">Ordem (Exibição)</label><input type="number" required value={pagOrdem} onChange={(e) => setPagOrdem(e.target.value)} className="w-full p-2 border rounded-md bg-white" /></div>
-                <div className="w-1/3 flex items-center h-10 px-2">
-                  <label className="flex items-center gap-2 cursor-pointer font-medium text-gray-700"><input type="checkbox" checked={pagStatusAtivo} onChange={(e) => setPagStatusAtivo(e.target.checked)} className="w-5 h-5 accent-indigo-600" /> Status Ativo</label>
-                </div>
+                <div className="w-1/3 flex items-center h-10 px-2"><label className="flex items-center gap-2 cursor-pointer font-medium text-gray-700"><input type="checkbox" checked={pagStatusAtivo} onChange={(e) => setPagStatusAtivo(e.target.checked)} className="w-5 h-5 accent-indigo-600" /> Status Ativo</label></div>
               </div>
-
               <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={carregandoPagamento} className={`flex-1 text-white font-bold py-2 rounded-md transition-colors ${idPagamentoEdicao ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-green-600 hover:bg-green-700'}`}>{idPagamentoEdicao ? 'Salvar Alterações' : 'Cadastrar Pagamento'}</button>
                 {idPagamentoEdicao && <button type="button" onClick={cancelarEdicaoPagamento} className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded-md transition-colors">Cancelar</button>}
               </div>
             </form>
-
             <h3 className="font-bold border-b pb-2 mb-4">Formas de Pagamento</h3>
             <div className="overflow-x-auto border border-gray-200 shadow-sm rounded-lg">
               <table className="w-full text-sm text-left whitespace-nowrap">
                 <thead className="bg-gray-50 text-gray-600 border-b border-gray-200">
-                  <tr>
-                    <th className="p-3 border-r font-semibold">Código</th><th className="p-3 border-r font-semibold">Título</th>
-                    <th className="p-3 border-r font-semibold">Descrição</th><th className="p-3 border-r font-semibold">Val. Mínimo</th>
-                    <th className="p-3 border-r font-semibold text-center">Ordem</th><th className="p-3 border-r font-semibold text-center">Status</th>
-                    <th className="p-3 font-semibold text-center">Ações</th>
-                  </tr>
+                  <tr><th className="p-3 border-r font-semibold">Código</th><th className="p-3 border-r font-semibold">Título</th><th className="p-3 border-r font-semibold">Descrição</th><th className="p-3 border-r font-semibold">Val. Mínimo</th><th className="p-3 border-r font-semibold text-center">Ordem</th><th className="p-3 border-r font-semibold text-center">Status</th><th className="p-3 font-semibold text-center">Ações</th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {listaPagamentos.map(pag => (
                     <tr key={pag.id} className="hover:bg-gray-50 text-gray-700">
-                      <td className="p-3 border-r">{pag.id}</td>
-                      <td className="p-3 border-r font-medium text-gray-900">{pag.titulo}</td>
-                      <td className="p-3 border-r">{pag.descricao}</td>
-                      <td className="p-3 border-r text-gray-600">{pag.valor_minimo > 0 ? `R$ ${Number(pag.valor_minimo).toFixed(2)}` : '-'}</td>
-                      <td className="p-3 border-r text-center">{pag.ordem}</td>
-                      <td className="p-3 border-r text-center">{pag.status_ativo ? <span className="bg-green-400 text-white px-2 py-1 rounded text-xs font-bold">✔</span> : <span className="bg-gray-300 text-gray-600 px-2 py-1 rounded text-xs font-bold">✖</span>}</td>
-                      <td className="p-3 text-center flex justify-center gap-1">
-                        <button onClick={() => iniciarEdicaoPagamento(pag)} className="bg-green-500 text-white p-1.5 rounded hover:bg-green-600" title="Editar">📝</button>
-                        <button onClick={() => excluirItem('formas_pagamento', pag.id)} className="bg-red-400 text-white p-1.5 rounded hover:bg-red-500" title="Excluir">✖</button>
-                      </td>
+                      <td className="p-3 border-r">{pag.id}</td><td className="p-3 border-r font-medium text-gray-900">{pag.titulo}</td><td className="p-3 border-r">{pag.descricao}</td><td className="p-3 border-r text-gray-600">{pag.valor_minimo > 0 ? `R$ ${Number(pag.valor_minimo).toFixed(2)}` : '-'}</td><td className="p-3 border-r text-center">{pag.ordem}</td><td className="p-3 border-r text-center">{pag.status_ativo ? <span className="bg-green-400 text-white px-2 py-1 rounded text-xs font-bold">✔</span> : <span className="bg-gray-300 text-gray-600 px-2 py-1 rounded text-xs font-bold">✖</span>}</td>
+                      <td className="p-3 text-center flex justify-center gap-1"><button onClick={() => iniciarEdicaoPagamento(pag)} className="bg-green-500 text-white p-1.5 rounded hover:bg-green-600" title="Editar">📝</button><button onClick={() => excluirItem('formas_pagamento', pag.id)} className="bg-red-400 text-white p-1.5 rounded hover:bg-red-500" title="Excluir">✖</button></td>
                     </tr>
                   ))}
                   {listaPagamentos.length === 0 && (<tr><td colSpan={7} className="p-6 text-center text-gray-500">Nenhuma forma de pagamento configurada.</td></tr>)}

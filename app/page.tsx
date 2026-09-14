@@ -6,7 +6,7 @@ import { supabase } from '@/utils/supabase'
 export default function Home() {
   const [produtos, setProdutos] = useState<any[]>([])
   const [banners, setBanners] = useState<any[]>([])
-  const [listaCategorias, setListaCategorias] = useState<string[]>(['Todos'])
+  const [listaCategorias, setListaCategorias] = useState<string[]>([]) 
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos')
   const [carregando, setCarregando] = useState(true)
   const [bannerAtual, setBannerAtual] = useState(0)
@@ -16,28 +16,24 @@ export default function Home() {
 
   const [carrinho, setCarrinho] = useState<any[]>([])
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false)
-  const [carrinhoCarregado, setCarrinhoCarregado] = useState(false) // TRAVA DE SEGURANÇA
+  const [carrinhoCarregado, setCarrinhoCarregado] = useState(false)
 
   const [listaVendedores, setListaVendedores] = useState<any[]>([])
   const [listaPagamentos, setListaPagamentos] = useState<any[]>([])
   const [finalizando, setFinalizando] = useState(false)
 
-  // Checkout - Campos restantes
   const [vendedorSelecionado, setVendedorSelecionado] = useState('')
   const [formaPagamento, setFormaPagamento] = useState('')
 
-  // Sistema de Login do Cliente
   const [clienteLogado, setClienteLogado] = useState<any>(null)
   const [modalAuthAberto, setModalAuthAberto] = useState(false)
   const [modoAuth, setModoAuth] = useState<'login' | 'cadastro'>('login')
   const [carregandoAuth, setCarregandoAuth] = useState(false)
 
-  // Área do Cliente
   const [modalMeusPedidosAberto, setModalMeusPedidosAberto] = useState(false)
   const [meusPedidos, setMeusPedidos] = useState<any[]>([])
   const [carregandoPedidos, setCarregandoPedidos] = useState(false)
 
-  // Campos de Login e Cadastro
   const [authLogin, setAuthLogin] = useState('')
   const [authSenha, setAuthSenha] = useState('')
   const [cadTipoPessoa, setCadTipoPessoa] = useState('Física')
@@ -48,21 +44,27 @@ export default function Home() {
   const [cadEstado, setCadEstado] = useState('')
   const [cadSenha, setCadSenha] = useState('')
 
+  const filtrosCampanha = ['⭐ Destaques', '🔥 Promoções', '✨ Novidades']
+
   useEffect(() => {
     async function carregarDados() {
       const { data: dadosProdutos } = await supabase.from('produtos').select('*')
       if (dadosProdutos) setProdutos(dadosProdutos)
+      
       const { data: dadosBanners } = await supabase.from('banners').select('*')
       if (dadosBanners) setBanners(dadosBanners)
+      
       const { data: dadosCategorias } = await supabase.from('categorias').select('*').order('nome')
-      if (dadosCategorias) setListaCategorias(['Todos', ...dadosCategorias.map(c => c.nome)])
+      if (dadosCategorias) {
+        setListaCategorias(dadosCategorias.map(c => c.nome))
+      }
+
       const { data: dadosVendedores } = await supabase.from('pessoas').select('*').eq('tipo', 'vendedor').order('nome')
       if (dadosVendedores) setListaVendedores(dadosVendedores)
+      
       const { data: dadosPag } = await supabase.from('formas_pagamento').select('*').eq('status_ativo', true).order('ordem')
-      if (dadosPag) {
-        setListaPagamentos(dadosPag)
-        if (dadosPag.length > 0) setFormaPagamento(dadosPag[0].titulo)
-      }
+      if (dadosPag) { setListaPagamentos(dadosPag); if (dadosPag.length > 0) setFormaPagamento(dadosPag[0].titulo) }
+      
       setCarregando(false)
     }
     carregarDados()
@@ -70,68 +72,28 @@ export default function Home() {
     const clienteSalvo = localStorage.getItem('erp_cliente_sessao')
     if (clienteSalvo) setClienteLogado(JSON.parse(clienteSalvo))
     
-    // Puxa o carrinho e DEPOIS libera o salvamento
     const carrinhoSalvo = localStorage.getItem('erp_carrinho_sessao')
-    if (carrinhoSalvo) {
-      setCarrinho(JSON.parse(carrinhoSalvo))
-    }
+    if (carrinhoSalvo) { setCarrinho(JSON.parse(carrinhoSalvo)) }
     setCarrinhoCarregado(true) 
   }, [])
 
-  // Só salva no navegador SE a trava inicial já foi liberada
-  useEffect(() => {
-    if (carrinhoCarregado) {
-      localStorage.setItem('erp_carrinho_sessao', JSON.stringify(carrinho))
-    }
-  }, [carrinho, carrinhoCarregado])
+  useEffect(() => { if (carrinhoCarregado) { localStorage.setItem('erp_carrinho_sessao', JSON.stringify(carrinho)) } }, [carrinho, carrinhoCarregado])
+  useEffect(() => { if (banners.length === 0) return; const intervalo = setInterval(() => setBannerAtual((prev) => (prev === banners.length - 1 ? 0 : prev + 1)), 5000); return () => clearInterval(intervalo) }, [banners.length])
 
-  useEffect(() => {
-    if (banners.length === 0) return
-    const intervalo = setInterval(() => setBannerAtual((prev) => (prev === banners.length - 1 ? 0 : prev + 1)), 5000)
-    return () => clearInterval(intervalo)
-  }, [banners.length])
-
-  const efetuarLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setCarregandoAuth(true)
-    const { data } = await supabase.from('pessoas').select('*').eq('tipo', 'cliente').eq('senha', authSenha).or(`telefone.eq.${authLogin},cpf_cnpj.eq.${authLogin}`).single()
-    if (data) {
-      setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false)
-    } else { alert('Usuário ou senha incorretos.') }
-    setCarregandoAuth(false)
-  }
-
-  const efetuarCadastro = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setCarregandoAuth(true)
-    const payload = { tipo: 'cliente', tipo_pessoa: cadTipoPessoa, nome: cadNome, cpf_cnpj: cadCpfCnpj, telefone: cadTelefone, cidade: cadCidade, estado: cadEstado, senha: cadSenha, status_ativo: true }
-    const { data, error } = await supabase.from('pessoas').insert([payload]).select().single()
-    if (error) { alert(`Erro ao criar conta: ${error.message}`) } 
-    else { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false); alert('Conta criada com sucesso!') }
-    setCarregandoAuth(false)
-  }
-
+  const efetuarLogin = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const { data } = await supabase.from('pessoas').select('*').eq('tipo', 'cliente').eq('senha', authSenha).or(`telefone.eq.${authLogin},cpf_cnpj.eq.${authLogin}`).single(); if (data) { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false) } else { alert('Usuário ou senha incorretos.') }; setCarregandoAuth(false) }
+  const efetuarCadastro = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const payload = { tipo: 'cliente', tipo_pessoa: cadTipoPessoa, nome: cadNome, cpf_cnpj: cadCpfCnpj, telefone: cadTelefone, cidade: cadCidade, estado: cadEstado, senha: cadSenha, status_ativo: true }; const { data, error } = await supabase.from('pessoas').insert([payload]).select().single(); if (error) { alert(`Erro: ${error.message}`) } else { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false); alert('Conta criada com sucesso!') }; setCarregandoAuth(false) }
   const fazerLogout = () => { setClienteLogado(null); localStorage.removeItem('erp_cliente_sessao') }
 
-  const abrirMeusPedidos = async () => {
-    setModalMeusPedidosAberto(true)
-    setCarregandoPedidos(true)
-    const { data } = await supabase.from('pedidos').select('*').eq('cliente_id', clienteLogado.id).order('data_pedido', { ascending: false })
-    if (data) setMeusPedidos(data)
-    setCarregandoPedidos(false)
-  }
-
+  const abrirMeusPedidos = async () => { setModalMeusPedidosAberto(true); setCarregandoPedidos(true); const { data } = await supabase.from('pedidos').select('*').eq('cliente_id', clienteLogado.id).order('data_pedido', { ascending: false }); if (data) setMeusPedidos(data); setCarregandoPedidos(false) }
+  
   const reimprimirPedidoCliente = async (pedido: any) => {
     try {
       const { data: itens, error } = await supabase.from('itens_pedido').select('*').eq('pedido_id', pedido.id)
       if (error) throw error
-
       const vendedor = listaVendedores.find(v => v.id === pedido.vendedor_id)
       const nomeVendedor = vendedor ? vendedor.nome : 'Não informado'
-
       // @ts-ignore
       const html2pdf = (await import('html2pdf.js')).default
-
       const htmlPdf = `
         <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
           <h1 style="color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Pedido de Venda #${pedido.id} (2ª Via)</h1>
@@ -169,27 +131,11 @@ export default function Home() {
       `
       const opcoesPdf: any = { margin: 10, filename: `pedido_${pedido.id}_comprovante.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
       await html2pdf().set(opcoesPdf).from(htmlPdf).save()
-    } catch (error: any) {
-      alert(`Erro ao gerar PDF: ${error.message}`)
-    }
+    } catch (error: any) { alert(`Erro ao gerar PDF: ${error.message}`) }
   }
 
-  const adicionarAoCarrinho = (produto: any, quantidadeDesejada: number) => {
-    setCarrinho(prev => {
-      const existe = prev.find(item => item.produto.id === produto.id)
-      if (existe) return prev.map(item => item.produto.id === produto.id ? { ...item, quantidade: item.quantidade + quantidadeDesejada } : item)
-      return [...prev, { produto, quantidade: quantidadeDesejada }]
-    })
-    setProdutoSelecionado(null); setIsCarrinhoAberto(true)
-  }
-
-  const alterarQuantidadeItem = (produtoId: number, delta: number) => {
-    setCarrinho(prev => prev.map(item => {
-      if (item.produto.id === produtoId) { const novaQtd = item.quantidade + delta; return novaQtd > 0 ? { ...item, quantidade: novaQtd } : item }
-      return item
-    }))
-  }
-
+  const adicionarAoCarrinho = (produto: any, quantidadeDesejada: number) => { setCarrinho(prev => { const existe = prev.find(item => item.produto.id === produto.id); if (existe) return prev.map(item => item.produto.id === produto.id ? { ...item, quantidade: item.quantidade + quantidadeDesejada } : item); return [...prev, { produto, quantidade: quantidadeDesejada }] }); setProdutoSelecionado(null); setIsCarrinhoAberto(true) }
+  const alterarQuantidadeItem = (produtoId: number, delta: number) => { setCarrinho(prev => prev.map(item => { if (item.produto.id === produtoId) { const novaQtd = item.quantidade + delta; return novaQtd > 0 ? { ...item, quantidade: novaQtd } : item } return item })) }
   const removerDoCarrinho = (produtoId: number) => setCarrinho(prev => prev.filter(item => item.produto.id !== produtoId))
   const valorTotalCarrinho = carrinho.reduce((acc, item) => acc + (item.produto.preco * item.quantidade), 0)
 
@@ -202,52 +148,22 @@ export default function Home() {
     try {
       const { data: pedido, error: erroPed } = await supabase.from('pedidos').insert([{ cliente_id: clienteLogado.id, vendedor_id: parseInt(vendedorSelecionado), valor_total: valorTotalCarrinho, status: 'Pendente', forma_pagamento: formaPagamento }]).select().single()
       if (erroPed) throw erroPed
-
       const itensBD = carrinho.map(item => ({ pedido_id: pedido.id, produto_nome: item.produto.nome, quantidade: item.quantidade, preco_unitario: item.produto.preco }))
-      const { error: erroItens } = await supabase.from('itens_pedido').insert(itensBD)
-      if (erroItens) throw erroItens
-
-      const vendedorObj = listaVendedores.find(v => v.id.toString() === vendedorSelecionado)
-      const nomeVendedor = vendedorObj ? vendedorObj.nome : 'Não informado'
-
-      // @ts-ignore
-      const html2pdf = (await import('html2pdf.js')).default
-
-      const htmlPdf = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-          <h1 style="color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Pedido de Venda #${pedido.id}</h1>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
-            <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
-              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3>
-              <p style="margin: 5px 0;"><strong>Nome:</strong> ${clienteLogado.nome}</p>
-              <p style="margin: 5px 0;"><strong>CPF/CNPJ:</strong> ${clienteLogado.cpf_cnpj}</p>
-              <p style="margin: 5px 0;"><strong>Localidade:</strong> ${clienteLogado.cidade} - ${clienteLogado.estado}</p>
-              <p style="margin: 5px 0;"><strong>Telefone:</strong> ${clienteLogado.telefone}</p>
-            </div>
-            <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
-              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados Comerciais</h3>
-              <p style="margin: 5px 0;"><strong>Vendedor:</strong> ${nomeVendedor}</p>
-              <p style="margin: 5px 0;"><strong>Pagamento:</strong> ${formaPagamento}</p>
-              <p style="margin: 5px 0;"><strong>Status:</strong> Aguardando Despacho</p>
-            </div>
-          </div>
-          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-            <thead><tr style="background-color: #2563eb; color: white;"><th style="padding: 12px; text-align: left;">Produto</th><th style="padding: 12px; text-align: center;">Qtd</th><th style="padding: 12px; text-align: right;">V. Unitário</th><th style="padding: 12px; text-align: right;">Subtotal</th></tr></thead>
-            <tbody>${carrinho.map(item => `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 12px;">${item.produto.nome}</td><td style="padding: 12px; text-align: center;">${item.quantidade}</td><td style="padding: 12px; text-align: right;">R$ ${item.produto.preco.toFixed(2)}</td><td style="padding: 12px; text-align: right;">R$ ${(item.produto.preco * item.quantidade).toFixed(2)}</td></tr>`).join('')}</tbody>
-          </table>
-          <div style="margin-top: 20px; text-align: right; font-size: 18px;"><strong>Total do Pedido: <span style="color: #166534;">R$ ${valorTotalCarrinho.toFixed(2)}</span></strong></div>
-        </div>
-      `
-      const opcoesPdf: any = { margin: 10, filename: `pedido_${pedido.id}_${clienteLogado.nome.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
-      await html2pdf().set(opcoesPdf).from(htmlPdf).save()
-
-      alert('Pedido finalizado com sucesso! Você pode acompanhar o status na sua Área do Cliente.')
+      await supabase.from('itens_pedido').insert(itensBD)
+      alert('Pedido finalizado com sucesso! Acompanhe na Área do Cliente.')
       setCarrinho([]); setIsCarrinhoAberto(false); setVendedorSelecionado('')
     } catch (error: any) { alert(`Erro ao finalizar: ${error.message}`) }
     setFinalizando(false)
   }
 
-  const produtosFiltrados = categoriaAtiva === 'Todos' ? produtos : produtos.filter(p => p.categoria === categoriaAtiva)
+  // Filtragem mais inteligente (ignora espaços em branco sobressalentes)
+  const produtosFiltrados = produtos.filter(p => {
+    if (categoriaAtiva === 'Todos') return true
+    if (categoriaAtiva === '⭐ Destaques') return p.is_destaque
+    if (categoriaAtiva === '🔥 Promoções') return p.is_promocao
+    if (categoriaAtiva === '✨ Novidades') return p.is_novo
+    return p.categoria?.trim() === categoriaAtiva?.trim()
+  })
 
   return (
     <main className="min-h-screen pb-12 bg-gray-50 text-gray-900 relative">
@@ -258,15 +174,11 @@ export default function Home() {
           {clienteLogado ? (
             <div className="flex items-center gap-4">
               <span className="text-sm font-medium text-gray-600 hidden md:inline">Olá, <strong className="text-gray-900">{clienteLogado.nome.split(' ')[0]}</strong></span>
-              <button onClick={abrirMeusPedidos} className="text-sm text-blue-600 font-bold hover:underline transition-colors">
-                Meus Pedidos
-              </button>
+              <button onClick={abrirMeusPedidos} className="text-sm text-blue-600 font-bold hover:underline transition-colors">Meus Pedidos</button>
               <button onClick={fazerLogout} className="text-xs bg-red-50 text-red-600 font-bold px-3 py-1.5 rounded hover:bg-red-100 transition-colors">Sair</button>
             </div>
           ) : (
-            <button onClick={() => setModalAuthAberto(true)} className="text-sm bg-blue-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-              Entrar / Cadastrar
-            </button>
+            <button onClick={() => setModalAuthAberto(true)} className="text-sm bg-blue-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">Entrar / Cadastrar</button>
           )}
         </div>
       </header>
@@ -283,26 +195,88 @@ export default function Home() {
 
       <div className="text-center mt-12 mb-8"><h2 className="text-3xl font-bold">Nossos Produtos</h2></div>
 
-      <div className="flex flex-wrap justify-center gap-3 mb-10 px-4">
-        {listaCategorias.map(cat => (
-          <button key={cat} onClick={() => setCategoriaAtiva(cat)} className={`px-4 py-2 rounded-full font-medium transition shadow-sm ${categoriaAtiva === cat ? 'bg-blue-600 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}>{cat}</button>
-        ))}
+      <div className="max-w-[1400px] mx-auto px-4 flex flex-col md:flex-row gap-8">
+        
+        {/* COLUNA ESQUERDA (CATEGORIAS DO BANCO + BOTÃO TODOS) */}
+        <aside className="w-full md:w-1/4 lg:w-1/5">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm sticky top-24">
+            <h3 className="font-bold text-gray-800 border-b border-gray-100 pb-3 mb-3 uppercase tracking-wider text-sm">Categorias</h3>
+            <div className="flex flex-col gap-1">
+              {/* NOVO: Botão Todos fixo no topo do menu lateral */}
+              <button 
+                onClick={() => setCategoriaAtiva('Todos')} 
+                className={`text-left px-3 py-2 rounded-lg transition-colors text-sm font-bold ${categoriaAtiva === 'Todos' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                Todos os Produtos
+              </button>
+              
+              {listaCategorias.length === 0 ? (
+                <p className="text-sm text-gray-500 px-3 mt-2">Nenhuma categoria.</p>
+              ) : (
+                listaCategorias.map(cat => (
+                  <button 
+                    key={cat} 
+                    onClick={() => setCategoriaAtiva(cat)} 
+                    className={`text-left px-3 py-2 rounded-lg transition-colors text-sm font-medium ${categoriaAtiva === cat ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
+                  >
+                    {cat}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </aside>
+
+        {/* COLUNA DIREITA (FILTROS CAMPANHA + PRODUTOS) */}
+        <div className="w-full md:w-3/4 lg:w-4/5">
+          
+          <div className="flex flex-wrap gap-3 mb-8">
+            {filtrosCampanha.map(cat => {
+              let cor = 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'
+              let corAtivo = 'bg-blue-600 text-white border-blue-600'
+              if (cat === '⭐ Destaques') corAtivo = 'bg-blue-600 text-white border-blue-600'
+              if (cat === '🔥 Promoções') corAtivo = 'bg-red-600 text-white border-red-600'
+              if (cat === '✨ Novidades') corAtivo = 'bg-green-600 text-white border-green-600'
+
+              return (
+                <button 
+                  key={cat} 
+                  onClick={() => setCategoriaAtiva(cat)} 
+                  className={`px-5 py-2 rounded-full font-bold transition shadow-sm border text-sm ${categoriaAtiva === cat ? corAtivo : cor}`}
+                >
+                  {cat}
+                </button>
+              )
+            })}
+          </div>
+
+          {carregando ? (<p className="text-center text-gray-500">Carregando...</p>) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {produtosFiltrados.map((produto) => (
+                <div key={produto.id} onClick={() => { setProdutoSelecionado(produto); setQuantidadeModal(1); }} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:shadow-lg transition-shadow cursor-pointer relative overflow-hidden">
+                  
+                  <div className="absolute top-6 left-6 flex flex-col gap-1.5 z-10">
+                    {produto.is_destaque && <span className="bg-blue-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded shadow-sm backdrop-blur-sm">Destaque</span>}
+                    {produto.is_novo && <span className="bg-green-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded shadow-sm backdrop-blur-sm">Novo</span>}
+                    {produto.is_promocao && <span className="bg-red-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded shadow-sm backdrop-blur-sm">Promoção</span>}
+                  </div>
+
+                  <div>
+                    <div className="h-48 bg-gray-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                      {produto.imagem_url ? <img src={produto.imagem_url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" /> : <span>Sem Imagem</span>}
+                    </div>
+                    <h2 className="text-lg font-semibold leading-tight">{produto.nome}</h2>
+                  </div>
+                  <p className="text-green-700 font-bold text-xl mt-2">R$ {produto.preco.toFixed(2)}</p>
+                </div>
+              ))}
+              {produtosFiltrados.length === 0 && <p className="col-span-full text-center text-gray-500 mt-10">Nenhum produto encontrado nesta seção.</p>}
+            </div>
+          )}
+        </div>
       </div>
 
-      {carregando ? (<p className="text-center text-gray-500">Carregando...</p>) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-7xl mx-auto px-4">
-          {produtosFiltrados.map((produto) => (
-            <div key={produto.id} onClick={() => { setProdutoSelecionado(produto); setQuantidadeModal(1); }} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:shadow-lg transition-shadow cursor-pointer">
-              <div>
-                <div className="h-48 bg-gray-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden">{produto.imagem_url ? <img src={produto.imagem_url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" /> : <span>Sem Imagem</span>}</div>
-                <h2 className="text-lg font-semibold leading-tight">{produto.nome}</h2>
-              </div>
-              <p className="text-green-700 font-bold text-xl mt-2">R$ {produto.preco.toFixed(2)}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
+      {/* MODAL DO PRODUTO */}
       {produtoSelecionado && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl relative flex flex-col md:flex-row max-h-[90vh]">
@@ -331,6 +305,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* GAVETA DO CARRINHO */}
       {isCarrinhoAberto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex justify-end">
           <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col">
@@ -390,7 +365,7 @@ export default function Home() {
                           Continuar Comprando
                         </button>
                         <button type="submit" disabled={finalizando} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-md disabled:opacity-50 transition-colors shadow-md">
-                          {finalizando ? 'Processando...' : 'Gerar Pedido e PDF'}
+                          {finalizando ? 'Processando...' : 'Gerar Pedido'}
                         </button>
                       </div>
                     </form>
@@ -402,6 +377,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* MODAL: MEUS PEDIDOS */}
       {modalMeusPedidosAberto && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden relative max-h-[90vh] flex flex-col">
@@ -455,6 +431,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* MODAL DE LOGIN / CADASTRO */}
       {modalAuthAberto && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative">
