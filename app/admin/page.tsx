@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/utils/supabase'
+import { gerarDescricaoAcao } from './actions'
 
 export default function AdminPanel() {
   // --- SISTEMA DE LOGIN ---
@@ -118,33 +119,22 @@ export default function AdminPanel() {
   }
 
 const gerarDescricaoIA = async () => {
-    if (!nome) return setMensagem('⚠️ Digite o nome do produto primeiro para a IA saber sobre o que escrever!')
+  if (!nome) return setMensagem('⚠️ Digite o nome do produto primeiro para a IA saber sobre o que escrever!')
 
-    setGerandoIA(true)
-    setMensagem('✨ IA pensando e escrevendo...')
-    
-    try {
-      const res = await fetch('/api/gerar-descricao', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, categoria })
-      })
+  setGerandoIA(true)
+  setMensagem('✨ IA pensando e escrevendo...')
 
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Erro ao comunicar com o servidor.')
-      }
-
-      setDescricao(data.descricao || '')
-      setMensagem('✅ Descrição gerada com sucesso pela IA!')
-    } catch (error: any) { 
-      console.error("Erro:", error)
-      setMensagem(`❌ Erro na IA: ${error.message}`) 
-    } finally {
-      setGerandoIA(false)
-    }
+  try {
+    const resultado = await gerarDescricaoAcao(nome, categoria)
+    setDescricao(resultado.descricao || '')
+    setMensagem('✅ Descrição gerada com sucesso pela IA!')
+  } catch (error: any) { 
+    console.error("Erro:", error)
+    setMensagem(`❌ Erro na IA: ${error.message}`) 
+  } finally {
+    setGerandoIA(false)
   }
+}
 
   // --- FUNÇÕES DE BANNERS E CATEGORIAS ---
   const handleSalvarBanner = async (e: React.FormEvent) => { e.preventDefault(); if (!imagemBanner) return; setCarregandoBanner(true); const ext = imagemBanner.name.split('.').pop(); const nomeArq = `banner_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemBanner); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq); const { error } = await supabase.from('banners').insert([{ titulo: tituloBanner, imagem_url: data.publicUrl }]); if (!error) { setMensagem('Banner salvo!'); setTituloBanner(''); setImagemBanner(null); carregarDados() }; setCarregandoBanner(false) }
