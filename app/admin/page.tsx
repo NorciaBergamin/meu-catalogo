@@ -122,7 +122,7 @@ export default function AdminPanel() {
     
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY
     if (!apiKey) {
-      return setMensagem('⚠️ ERRO CRÍTICO: Chave da IA não encontrada. Verifique se você salvou o arquivo .env.local e REINICIOU o servidor, ou se adicionou na Vercel.')
+      return setMensagem('⚠️ ERRO CRÍTICO: Chave da IA não encontrada.')
     }
 
     setGerandoIA(true)
@@ -131,7 +131,7 @@ export default function AdminPanel() {
     try {
       const prompt = `Atue como um especialista em marketing. Crie uma descrição comercial curta e altamente persuasiva (máximo de 3 frases) para um produto de e-commerce. O produto é: ${nome}. Categoria: ${categoria}. Foco em atrair o cliente e gerar vendas. Retorne APENAS o texto da descrição direto ao ponto, sem aspas.`
       
-     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash:generateContent?key=${apiKey}`,{
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -148,11 +148,11 @@ export default function AdminPanel() {
       setMensagem('✅ Descrição gerada com sucesso pela IA!')
     } catch (error: any) { 
       console.error("Erro da API do Google:", error)
-      setMensagem(`❌ Erro na IA: Verifique a sua chave no .env.local e o console do navegador.`) 
+      setMensagem(`❌ Erro na IA: ${error.message || 'Verifique o console.'}`) 
     } finally {
       setGerandoIA(false)
     }
-  }
+   }
 
   // --- FUNÇÕES DE BANNERS E CATEGORIAS ---
   const handleSalvarBanner = async (e: React.FormEvent) => { e.preventDefault(); if (!imagemBanner) return; setCarregandoBanner(true); const ext = imagemBanner.name.split('.').pop(); const nomeArq = `banner_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemBanner); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq); const { error } = await supabase.from('banners').insert([{ titulo: tituloBanner, imagem_url: data.publicUrl }]); if (!error) { setMensagem('Banner salvo!'); setTituloBanner(''); setImagemBanner(null); carregarDados() }; setCarregandoBanner(false) }
