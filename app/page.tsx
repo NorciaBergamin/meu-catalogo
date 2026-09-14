@@ -17,19 +17,34 @@ export default function Home() {
   const [carrinho, setCarrinho] = useState<any[]>([])
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false)
   const [listaVendedores, setListaVendedores] = useState<any[]>([])
+  const [listaPagamentos, setListaPagamentos] = useState<any[]>([])
   const [finalizando, setFinalizando] = useState(false)
 
-  // CRM
-  const [nomeCliente, setNomeCliente] = useState('')
-  const [telefoneCliente, setTelefoneCliente] = useState('')
-  const [tipoPessoa, setTipoPessoa] = useState('Física')
-  const [cpfCnpj, setCpfCnpj] = useState('')
-  const [cidade, setCidade] = useState('')
-  const [estado, setEstado] = useState('')
+  // Checkout - Campos restantes
   const [vendedorSelecionado, setVendedorSelecionado] = useState('')
-  
-  // NOVO: Forma de Pagamento
-  const [formaPagamento, setFormaPagamento] = useState('Pix')
+  const [formaPagamento, setFormaPagamento] = useState('')
+
+  // Sistema de Login do Cliente
+  const [clienteLogado, setClienteLogado] = useState<any>(null)
+  const [modalAuthAberto, setModalAuthAberto] = useState(false)
+  const [modoAuth, setModoAuth] = useState<'login' | 'cadastro'>('login')
+  const [carregandoAuth, setCarregandoAuth] = useState(false)
+
+  // --- NOVO: ÁREA DO CLIENTE ---
+  const [modalMeusPedidosAberto, setModalMeusPedidosAberto] = useState(false)
+  const [meusPedidos, setMeusPedidos] = useState<any[]>([])
+  const [carregandoPedidos, setCarregandoPedidos] = useState(false)
+
+  // Campos de Login e Cadastro
+  const [authLogin, setAuthLogin] = useState('')
+  const [authSenha, setAuthSenha] = useState('')
+  const [cadTipoPessoa, setCadTipoPessoa] = useState('Física')
+  const [cadNome, setCadNome] = useState('')
+  const [cadCpfCnpj, setCadCpfCnpj] = useState('')
+  const [cadTelefone, setCadTelefone] = useState('')
+  const [cadCidade, setCadCidade] = useState('')
+  const [cadEstado, setCadEstado] = useState('')
+  const [cadSenha, setCadSenha] = useState('')
 
   useEffect(() => {
     async function carregarDados() {
@@ -41,10 +56,24 @@ export default function Home() {
       if (dadosCategorias) setListaCategorias(['Todos', ...dadosCategorias.map(c => c.nome)])
       const { data: dadosVendedores } = await supabase.from('pessoas').select('*').eq('tipo', 'vendedor').order('nome')
       if (dadosVendedores) setListaVendedores(dadosVendedores)
+      const { data: dadosPag } = await supabase.from('formas_pagamento').select('*').eq('status_ativo', true).order('ordem')
+      if (dadosPag) {
+        setListaPagamentos(dadosPag)
+        if (dadosPag.length > 0) setFormaPagamento(dadosPag[0].titulo)
+      }
       setCarregando(false)
     }
     carregarDados()
+
+    const clienteSalvo = localStorage.getItem('erp_cliente_sessao')
+    if (clienteSalvo) setClienteLogado(JSON.parse(clienteSalvo))
+    const carrinhoSalvo = localStorage.getItem('erp_carrinho_sessao')
+    if (carrinhoSalvo) setCarrinho(JSON.parse(carrinhoSalvo))
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem('erp_carrinho_sessao', JSON.stringify(carrinho))
+  }, [carrinho])
 
   useEffect(() => {
     if (banners.length === 0) return
@@ -52,6 +81,38 @@ export default function Home() {
     return () => clearInterval(intervalo)
   }, [banners.length])
 
+  // --- FUNÇÕES DE AUTENTICAÇÃO E ÁREA DO CLIENTE ---
+  const efetuarLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCarregandoAuth(true)
+    const { data } = await supabase.from('pessoas').select('*').eq('tipo', 'cliente').eq('senha', authSenha).or(`telefone.eq.${authLogin},cpf_cnpj.eq.${authLogin}`).single()
+    if (data) {
+      setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false)
+    } else { alert('Usuário ou senha incorretos.') }
+    setCarregandoAuth(false)
+  }
+
+  const efetuarCadastro = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCarregandoAuth(true)
+    const payload = { tipo: 'cliente', tipo_pessoa: cadTipoPessoa, nome: cadNome, cpf_cnpj: cadCpfCnpj, telefone: cadTelefone, cidade: cadCidade, estado: cadEstado, senha: cadSenha, status_ativo: true }
+    const { data, error } = await supabase.from('pessoas').insert([payload]).select().single()
+    if (error) { alert(`Erro ao criar conta: ${error.message}`) } 
+    else { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false); alert('Conta criada com sucesso!') }
+    setCarregandoAuth(false)
+  }
+
+  const fazerLogout = () => { setClienteLogado(null); localStorage.removeItem('erp_cliente_sessao') }
+
+  const abrirMeusPedidos = async () => {
+    setModalMeusPedidosAberto(true)
+    setCarregandoPedidos(true)
+    const { data } = await supabase.from('pedidos').select('*').eq('cliente_id', clienteLogado.id).order('data_pedido', { ascending: false })
+    if (data) setMeusPedidos(data)
+    setCarregandoPedidos(false)
+  }
+
+  // --- FUNÇÕES DO CARRINHO ---
   const adicionarAoCarrinho = (produto: any, quantidadeDesejada: number) => {
     setCarrinho(prev => {
       const existe = prev.find(item => item.produto.id === produto.id)
@@ -74,16 +135,11 @@ export default function Home() {
   const handleFinalizarCompra = async (e: React.FormEvent) => {
     e.preventDefault()
     if (carrinho.length === 0) return alert('Seu carrinho está vazio.')
-    if (!vendedorSelecionado) return alert('Por favor, selecione um vendedor.')
+    if (!vendedorSelecionado) return alert('Por favor, selecione o vendedor que te atendeu.')
 
     setFinalizando(true)
     try {
-      const payloadCliente = { nome: nomeCliente, telefone: telefoneCliente, tipo: 'cliente', tipo_pessoa: tipoPessoa, cpf_cnpj: cpfCnpj, cidade: cidade, estado: estado, representante_id: parseInt(vendedorSelecionado), status_ativo: true }
-      const { data: cliente, error: erroCli } = await supabase.from('pessoas').insert([payloadCliente]).select().single()
-      if (erroCli) throw erroCli
-
-      // Salva o pedido com a forma de pagamento
-      const { data: pedido, error: erroPed } = await supabase.from('pedidos').insert([{ cliente_id: cliente.id, vendedor_id: parseInt(vendedorSelecionado), valor_total: valorTotalCarrinho, status: 'Pendente', forma_pagamento: formaPagamento }]).select().single()
+      const { data: pedido, error: erroPed } = await supabase.from('pedidos').insert([{ cliente_id: clienteLogado.id, vendedor_id: parseInt(vendedorSelecionado), valor_total: valorTotalCarrinho, status: 'Pendente', forma_pagamento: formaPagamento }]).select().single()
       if (erroPed) throw erroPed
 
       const itensBD = carrinho.map(item => ({ pedido_id: pedido.id, produto_nome: item.produto.nome, quantidade: item.quantidade, preco_unitario: item.produto.preco }))
@@ -102,10 +158,10 @@ export default function Home() {
           <div style="display: flex; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
             <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
               <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3>
-              <p style="margin: 5px 0;"><strong>Nome:</strong> ${nomeCliente}</p>
-              <p style="margin: 5px 0;"><strong>CPF/CNPJ:</strong> ${cpfCnpj}</p>
-              <p style="margin: 5px 0;"><strong>Localidade:</strong> ${cidade} - ${estado}</p>
-              <p style="margin: 5px 0;"><strong>Telefone:</strong> ${telefoneCliente}</p>
+              <p style="margin: 5px 0;"><strong>Nome:</strong> ${clienteLogado.nome}</p>
+              <p style="margin: 5px 0;"><strong>CPF/CNPJ:</strong> ${clienteLogado.cpf_cnpj}</p>
+              <p style="margin: 5px 0;"><strong>Localidade:</strong> ${clienteLogado.cidade} - ${clienteLogado.estado}</p>
+              <p style="margin: 5px 0;"><strong>Telefone:</strong> ${clienteLogado.telefone}</p>
             </div>
             <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
               <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados Comerciais</h3>
@@ -121,11 +177,11 @@ export default function Home() {
           <div style="margin-top: 20px; text-align: right; font-size: 18px;"><strong>Total do Pedido: <span style="color: #166534;">R$ ${valorTotalCarrinho.toFixed(2)}</span></strong></div>
         </div>
       `
-      const opcoesPdf: any = { margin: 10, filename: `pedido_${pedido.id}_${nomeCliente.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
+      const opcoesPdf: any = { margin: 10, filename: `pedido_${pedido.id}_${clienteLogado.nome.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
       await html2pdf().set(opcoesPdf).from(htmlPdf).save()
 
-      alert('Pedido finalizado! O PDF começará a ser baixado.')
-      setCarrinho([]); setIsCarrinhoAberto(false); setNomeCliente(''); setTelefoneCliente(''); setVendedorSelecionado(''); setCpfCnpj(''); setCidade(''); setEstado(''); setTipoPessoa('Física'); setFormaPagamento('Pix')
+      alert('Pedido finalizado com sucesso! Você pode acompanhar o status na sua Área do Cliente.')
+      setCarrinho([]); setIsCarrinhoAberto(false); setVendedorSelecionado('')
     } catch (error: any) { alert(`Erro ao finalizar: ${error.message}`) }
     setFinalizando(false)
   }
@@ -134,17 +190,40 @@ export default function Home() {
 
   return (
     <main className="min-h-screen pb-12 bg-gray-50 text-gray-900 relative">
+      
+      {/* CABEÇALHO DO CATÁLOGO COM ÁREA DO CLIENTE */}
+      <header className="bg-white border-b border-gray-200 shadow-sm py-4 px-6 flex justify-between items-center sticky top-0 z-30">
+        <h1 className="text-2xl font-black text-blue-600 tracking-tighter">CATÁLOGO</h1>
+        <div>
+          {clienteLogado ? (
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-gray-600 hidden md:inline">Olá, <strong className="text-gray-900">{clienteLogado.nome.split(' ')[0]}</strong></span>
+              <button onClick={abrirMeusPedidos} className="text-sm text-blue-600 font-bold hover:underline transition-colors">
+                Meus Pedidos
+              </button>
+              <button onClick={fazerLogout} className="text-xs bg-red-50 text-red-600 font-bold px-3 py-1.5 rounded hover:bg-red-100 transition-colors">Sair</button>
+            </div>
+          ) : (
+            <button onClick={() => setModalAuthAberto(true)} className="text-sm bg-blue-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+              Entrar / Cadastrar
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* BANNERS */}
       {banners.length > 0 && (
-        <div className="relative w-full h-[300px] md:h-[450px] bg-gray-900 overflow-hidden shadow-md">
-          {banners.map((banner, index) => (<div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}><img src={banner.imagem_url} alt={banner.titulo} className="w-full h-full object-cover" /></div>))}
+        <div className="relative w-full h-[250px] md:h-[400px] bg-gray-900 overflow-hidden">
+          {banners.map((banner, index) => (<div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}><img src={banner.imagem_url} className="w-full h-full object-cover" /></div>))}
         </div>
       )}
 
+      {/* BOTÃO FLUTUANTE CARRINHO */}
       <button onClick={() => setIsCarrinhoAberto(true)} className="fixed bottom-6 right-6 bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 transition-transform hover:scale-110 z-40 flex items-center gap-2 font-bold">
         🛒 <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full absolute -top-2 -right-2">{carrinho.length}</span>
       </button>
 
-      <header className="text-center mt-12 mb-10"><h1 className="text-4xl font-bold">Nosso Catálogo</h1></header>
+      <div className="text-center mt-12 mb-8"><h2 className="text-3xl font-bold">Nossos Produtos</h2></div>
 
       <div className="flex flex-wrap justify-center gap-3 mb-10 px-4">
         {listaCategorias.map(cat => (
@@ -166,6 +245,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* MODAL DO PRODUTO */}
       {produtoSelecionado && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl relative flex flex-col md:flex-row max-h-[90vh]">
@@ -194,6 +274,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* GAVETA DO CARRINHO */}
       {isCarrinhoAberto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex justify-end">
           <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col">
@@ -219,31 +300,133 @@ export default function Home() {
                   ))}
                   <div className="pt-4 text-right border-b pb-6 mb-6"><p className="text-gray-600">Total do Pedido</p><p className="text-3xl font-bold text-green-700">R$ {valorTotalCarrinho.toFixed(2)}</p></div>
 
-                  <form onSubmit={handleFinalizarCompra} className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                    <h3 className="font-bold text-gray-800 mb-2 border-b pb-2">Dados de Cadastro</h3>
-                    <div className="flex gap-2">
-                      <div className="w-1/3"><label className="block text-xs font-medium mb-1">Tipo</label><select value={tipoPessoa} onChange={e => setTipoPessoa(e.target.value)} className="w-full p-2 border rounded-md text-xs bg-white"><option>Física</option><option>Jurídica</option></select></div>
-                      <div className="w-2/3"><label className="block text-xs font-medium mb-1">CPF / CNPJ</label><input type="text" required value={cpfCnpj} onChange={e => setCpfCnpj(e.target.value)} className="w-full p-2 border rounded-md text-xs" /></div>
+                  {!clienteLogado ? (
+                    <div className="bg-blue-50 border border-blue-200 p-6 rounded-xl text-center">
+                      <p className="text-blue-800 font-medium mb-4">Identifique-se para salvar seu histórico e gerar o pedido.</p>
+                      <button onClick={() => { setIsCarrinhoAberto(false); setModalAuthAberto(true); }} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md">
+                        Fazer Login ou Cadastrar
+                      </button>
                     </div>
-                    <div><label className="block text-xs font-medium mb-1">Nome / Razão Social</label><input type="text" required value={nomeCliente} onChange={e => setNomeCliente(e.target.value)} className="w-full p-2 border rounded-md text-xs" /></div>
-                    <div><label className="block text-xs font-medium mb-1">Telefone / WhatsApp</label><input type="text" required value={telefoneCliente} onChange={e => setTelefoneCliente(e.target.value)} className="w-full p-2 border rounded-md text-xs" /></div>
-                    <div className="flex gap-2">
-                      <div className="w-2/3"><label className="block text-xs font-medium mb-1">Cidade</label><input type="text" required value={cidade} onChange={e => setCidade(e.target.value)} className="w-full p-2 border rounded-md text-xs" /></div>
-                      <div className="w-1/3"><label className="block text-xs font-medium mb-1">Estado</label><select required value={estado} onChange={e => setEstado(e.target.value)} className="w-full p-2 border rounded-md text-xs bg-white"><option value="">UF</option><option value="PR">PR</option><option value="SP">SP</option><option value="SC">SC</option><option value="RS">RS</option><option value="MT">MT</option></select></div>
-                    </div>
-                    <div className="pt-2 border-t mt-2">
-                      <label className="block text-xs font-medium mb-1 text-blue-700">Forma de Pagamento</label>
-                      <select required value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)} className="w-full p-2 border rounded-md text-sm bg-white mb-3">
-                        <option value="Pix">Pix</option><option value="Cartão de Crédito">Cartão de Crédito</option><option value="Cartão de Débito">Cartão de Débito</option><option value="Boleto">Boleto</option><option value="Dinheiro">Dinheiro</option>
-                      </select>
-                      <label className="block text-xs font-medium mb-1 text-blue-700">Vendedor Responsável</label>
-                      <select required value={vendedorSelecionado} onChange={e => setVendedorSelecionado(e.target.value)} className="w-full p-2 border rounded-md text-sm bg-white border-blue-300">
-                        <option value="">Selecione...</option>{listaVendedores.map(v => (<option key={v.id} value={v.id}>{v.nome}</option>))}
-                      </select>
-                    </div>
-                    <button type="submit" disabled={finalizando} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-md mt-4 disabled:opacity-50">{finalizando ? 'Processando...' : 'Confirmar e Gerar PDF'}</button>
-                  </form>
+                  ) : (
+                    <form onSubmit={handleFinalizarCompra} className="space-y-3 bg-gray-50 p-5 rounded-xl border border-gray-200">
+                      <h3 className="font-bold text-gray-800 border-b pb-2 mb-4">Finalizar Compra</h3>
+                      <div className="bg-white p-3 rounded border border-gray-200 mb-4 text-sm text-gray-600">
+                        <p>Comprando como: <strong className="text-gray-900">{clienteLogado.nome}</strong></p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700">Forma de Pagamento</label>
+                        <select required value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-white text-sm">
+                          {listaPagamentos.length === 0 ? <option value="Pix">Pix</option> : listaPagamentos.map(p => <option key={p.id} value={p.titulo}>{p.titulo}</option>)}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700">Vendedor Responsável</label>
+                        <select required value={vendedorSelecionado} onChange={e => setVendedorSelecionado(e.target.value)} className="w-full p-2 border border-blue-300 rounded-md bg-white text-sm">
+                          <option value="">Selecione quem te atendeu...</option>
+                          {listaVendedores.map(v => (<option key={v.id} value={v.id}>{v.nome}</option>))}
+                        </select>
+                      </div>
+
+                      <div className="flex flex-col gap-2 mt-4">
+                        <button type="button" onClick={() => setIsCarrinhoAberto(false)} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-md transition-colors">
+                          Continuar Comprando
+                        </button>
+                        <button type="submit" disabled={finalizando} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-md disabled:opacity-50 transition-colors shadow-md">
+                          {finalizando ? 'Processando...' : 'Gerar Pedido e PDF'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: MEUS PEDIDOS (ÁREA DO CLIENTE) */}
+      {modalMeusPedidosAberto && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden relative max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+              <h2 className="text-2xl font-bold text-gray-800">Meus Pedidos</h2>
+              <button onClick={() => setModalMeusPedidosAberto(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl z-10">✕</button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 bg-gray-50">
+              {carregandoPedidos ? (
+                <p className="text-center text-gray-500">Buscando seu histórico...</p>
+              ) : meusPedidos.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-gray-500 mb-4">Você ainda não realizou nenhum pedido.</p>
+                  <button onClick={() => setModalMeusPedidosAberto(false)} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">Explorar Produtos</button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {meusPedidos.map(pedido => (
+                    <div key={pedido.id} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-4">
+                      <div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="font-black text-lg text-gray-900">#{pedido.id}</span>
+                          <span className={`text-xs font-bold px-2 py-1 rounded-full border ${
+                            pedido.status === 'Pendente' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                            pedido.status === 'Em Produção' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            pedido.status === 'Despachado' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            'bg-green-50 text-green-700 border-green-200'
+                          }`}>
+                            {pedido.status}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500">Realizado em {new Date(pedido.data_pedido).toLocaleDateString('pt-BR')}</p>
+                        <p className="text-sm text-gray-500">Pagamento: {pedido.forma_pagamento || '-'}</p>
+                      </div>
+                      <div className="text-left md:text-right">
+                        <p className="text-sm text-gray-500 mb-1">Total do Pedido</p>
+                        <p className="text-2xl font-bold text-green-700">R$ {Number(pedido.valor_total).toFixed(2)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE LOGIN / CADASTRO DO CLIENTE */}
+      {modalAuthAberto && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative">
+            <button onClick={() => setModalAuthAberto(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl z-10">✕</button>
+            <div className="flex text-center border-b border-gray-200">
+              <button onClick={() => setModoAuth('login')} className={`flex-1 py-4 font-bold ${modoAuth === 'login' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-gray-500 hover:bg-gray-50'}`}>Entrar</button>
+              <button onClick={() => setModoAuth('cadastro')} className={`flex-1 py-4 font-bold ${modoAuth === 'cadastro' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-gray-500 hover:bg-gray-50'}`}>Criar Conta</button>
+            </div>
+
+            <div className="p-6">
+              {modoAuth === 'login' ? (
+                <form onSubmit={efetuarLogin} className="space-y-4">
+                  <div><label className="block text-sm font-medium mb-1">CPF, CNPJ ou Telefone</label><input type="text" required value={authLogin} onChange={e=>setAuthLogin(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500" placeholder="Ex: 000.000.000-00" /></div>
+                  <div><label className="block text-sm font-medium mb-1">Senha</label><input type="password" required value={authSenha} onChange={e=>setAuthSenha(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500" placeholder="••••••••" /></div>
+                  <button type="submit" disabled={carregandoAuth} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg mt-2">{carregandoAuth ? 'Aguarde...' : 'Entrar na Conta'}</button>
+                </form>
+              ) : (
+                <form onSubmit={efetuarCadastro} className="space-y-3 max-h-[60vh] overflow-y-auto px-1">
+                  <div className="flex gap-2">
+                    <div className="w-1/3"><label className="block text-xs font-medium mb-1">Tipo</label><select value={cadTipoPessoa} onChange={e=>setCadTipoPessoa(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-white text-sm"><option>Física</option><option>Jurídica</option></select></div>
+                    <div className="w-2/3"><label className="block text-xs font-medium mb-1">CPF / CNPJ</label><input type="text" required value={cadCpfCnpj} onChange={e=>setCadCpfCnpj(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm" placeholder="000.000.000-00" /></div>
+                  </div>
+                  <div><label className="block text-xs font-medium mb-1">Nome / Razão Social</label><input type="text" required value={cadNome} onChange={e=>setCadNome(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm" placeholder="Nome completo" /></div>
+                  <div><label className="block text-xs font-medium mb-1">Telefone / WhatsApp</label><input type="text" required value={cadTelefone} onChange={e=>setCadTelefone(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm" placeholder="(00) 00000-0000" /></div>
+                  <div className="flex gap-2">
+                    <div className="w-2/3"><label className="block text-xs font-medium mb-1">Cidade</label><input type="text" required value={cadCidade} onChange={e=>setCadCidade(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm" placeholder="Sua cidade" /></div>
+                    <div className="w-1/3"><label className="block text-xs font-medium mb-1">Estado</label><select required value={cadEstado} onChange={e=>setCadEstado(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-white text-sm"><option value="">UF</option><option value="PR">PR</option><option value="SP">SP</option><option value="SC">SC</option><option value="RS">RS</option><option value="MT">MT</option></select></div>
+                  </div>
+                  <div className="pt-2"><label className="block text-xs font-medium mb-1">Crie uma Senha</label><input type="password" required value={cadSenha} onChange={e=>setCadSenha(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm" placeholder="Para acessar seus pedidos depois" /></div>
+                  <button type="submit" disabled={carregandoAuth} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg mt-4 shadow-sm">{carregandoAuth ? 'Criando Conta...' : 'Cadastrar e Continuar'}</button>
+                </form>
               )}
             </div>
           </div>
