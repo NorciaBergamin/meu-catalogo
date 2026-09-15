@@ -301,30 +301,29 @@ export default function Home() {
           </div>
         </header>
 
-     {/* BANNERS SEPARADOS RESPONSIVOS (WEB vs APP) */}
+    {/* BANNERS RESPONSIVOS COM PROPORÇÃO IDEAL (SEM CORTES E TAMANHO PERFEITO) */}
         {banners.length > 0 && (() => {
           const bannersWeb = banners.filter(b => b.tipo === 'web' || !b.tipo)
           const bannersApp = banners.filter(b => b.tipo === 'app')
           
-          // Se não houver banners específicos de app, usa os web para ambos
           const listaWebFinal = bannersWeb.length > 0 ? bannersWeb : banners
           const listaAppFinal = bannersApp.length > 0 ? bannersApp : listaWebFinal
 
           return (
             <>
-              {/* Versão Web (Visível em Tablets e Computadores) */}
-              <div className="hidden md:block relative w-full h-[350px] bg-gray-900 overflow-hidden shadow-inner">
+              {/* Versão Web / Computador (Proporção larga ideal para PC) */}
+              <div className="hidden md:block relative w-full aspect-[3/1] max-h-[480px] bg-white overflow-hidden shadow-sm">
                 {listaWebFinal.map((banner, index) => (
-                  <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}>
+                  <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === (bannerAtual % listaWebFinal.length) ? 'opacity-100' : 'opacity-0'}`}>
                     <img src={banner.imagem_url} className="w-full h-full object-cover" />
                   </div>
                 ))}
               </div>
 
-              {/* Versão App / Celular (Visível apenas em Smartphones) */}
-              <div className="block md:hidden relative w-full h-[250px] bg-gray-900 overflow-hidden shadow-inner">
+              {/* Versão App / Celular (Proporção ajustada para Smartphone) */}
+              <div className="block md:hidden relative w-full aspect-[4/3] max-h-[380px] bg-white overflow-hidden shadow-sm">
                 {listaAppFinal.map((banner, index) => (
-                  <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}>
+                  <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === (bannerAtual % listaAppFinal.length) ? 'opacity-100' : 'opacity-0'}`}>
                     <img src={banner.imagem_url} className="w-full h-full object-cover" />
                   </div>
                 ))}
