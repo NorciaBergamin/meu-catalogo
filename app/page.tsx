@@ -118,7 +118,15 @@ export default function Home() {
 
   useEffect(() => { if (carrinhoCarregado) { localStorage.setItem('erp_carrinho_sessao', JSON.stringify(carrinho)) } }, [carrinho, carrinhoCarregado])
   useEffect(() => { if (banners.length === 0) return; const intervalo = setInterval(() => setBannerAtual((prev) => (prev === banners.length - 1 ? 0 : prev + 1)), 5000); return () => clearInterval(intervalo) }, [banners.length])
-
+  // Detecta se veio da página de produto para abrir o carrinho automaticamente
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('abrirCarrinho') === 'true') {
+      setIsCarrinhoAberto(true)
+      // Limpa a URL para não reabrir se o usuário atualizar a página
+      window.history.replaceState({}, '', '/')
+    }
+  }, [])
   const efetuarLogin = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const { data } = await supabase.from('pessoas').select('*').eq('tipo', 'cliente').eq('senha', authSenha).or(`telefone.eq.${authLogin},cpf_cnpj.eq.${authLogin}`).single(); if (data) { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false) } else { alert('Usuário ou senha incorretos.') }; setCarregandoAuth(false) }
   const efetuarCadastro = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const payload = { tipo: 'cliente', tipo_pessoa: cadTipoPessoa, nome: cadNome, cpf_cnpj: cadCpfCnpj, telefone: cadTelefone, cidade: cadCidade, estado: cadEstado, senha: cadSenha, status_ativo: true }; const { data, error } = await supabase.from('pessoas').insert([payload]).select().single(); if (error) { alert(`Erro: ${error.message}`) } else { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false); alert('Conta criada com sucesso!') }; setCarregandoAuth(false) }
   const fazerLogout = () => { setClienteLogado(null); localStorage.removeItem('erp_cliente_sessao') }

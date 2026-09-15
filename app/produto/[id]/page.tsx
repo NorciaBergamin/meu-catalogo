@@ -84,7 +84,9 @@ export default function DetalheProduto() {
       novoCarrinho = [...carrinhoAtual, { produto, quantidade }]
     }
     localStorage.setItem('erp_carrinho_sessao', JSON.stringify(novoCarrinho))
-    router.push('/')
+    
+    // Redireciona para a home enviando o parâmetro para abrir o carrinho automaticamente
+    router.push('/?abrirCarrinho=true')
   }
 
   return (
