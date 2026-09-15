@@ -301,21 +301,35 @@ export default function Home() {
           </div>
         </header>
 
-        {/* BANNERS SEPARADOS PARA WEB E APP */}
+     {/* BANNERS SEPARADOS RESPONSIVOS (WEB vs APP) */}
         {banners.length > 0 && (() => {
-          // Detecta se é dispositivo móvel ou exibe filtrado
           const bannersWeb = banners.filter(b => b.tipo === 'web' || !b.tipo)
           const bannersApp = banners.filter(b => b.tipo === 'app')
-          const bannersParaExibir = bannersApp.length > 0 && typeof window !== 'undefined' && window.innerWidth < 768 ? bannersApp : (bannersWeb.length > 0 ? bannersWeb : banners)
+          
+          // Se não houver banners específicos de app, usa os web para ambos
+          const listaWebFinal = bannersWeb.length > 0 ? bannersWeb : banners
+          const listaAppFinal = bannersApp.length > 0 ? bannersApp : listaWebFinal
 
           return (
-            <div className="relative w-full h-[200px] sm:h-[280px] md:h-[380px] bg-gray-900 overflow-hidden shadow-inner flex items-center justify-center">
-              {bannersParaExibir.map((banner, index) => (
-                <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}>
-                  <img src={banner.imagem_url} className="w-full h-full object-cover bg-black" />
-                </div>
-              ))}
-            </div>
+            <>
+              {/* Versão Web (Visível em Tablets e Computadores) */}
+              <div className="hidden md:block relative w-full h-[350px] bg-gray-900 overflow-hidden shadow-inner">
+                {listaWebFinal.map((banner, index) => (
+                  <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}>
+                    <img src={banner.imagem_url} className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Versão App / Celular (Visível apenas em Smartphones) */}
+              <div className="block md:hidden relative w-full h-[250px] bg-gray-900 overflow-hidden shadow-inner">
+                {listaAppFinal.map((banner, index) => (
+                  <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}>
+                    <img src={banner.imagem_url} className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </>
           )
         })()}
 
