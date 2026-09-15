@@ -15,7 +15,7 @@ export default function AdminPanel() {
     setErroLogin('')
     if (loginUser.toLowerCase() === 'admin' && loginSenha === 'admin123') {
       setUsuarioLogado({ tipo: 'admin', nome: 'Administrador' })
-      setAbaAtiva('pedidos')
+      setAbaAtiva('dashboard')
       return
     }
     const { data } = await supabase.from('pessoas').select('*').eq('tipo', 'vendedor').eq('senha', loginSenha).or(`telefone.eq.${loginUser},nome.eq.${loginUser}`).single()
@@ -27,7 +27,7 @@ export default function AdminPanel() {
     }
   }
 
-  const [abaAtiva, setAbaAtiva] = useState('pedidos')
+  const [abaAtiva, setAbaAtiva] = useState('dashboard')
   const [mensagem, setMensagem] = useState('')
   
   const [categoriasCadastradas, setCategoriasCadastradas] = useState<any[]>([])
@@ -37,7 +37,7 @@ export default function AdminPanel() {
   const [listaClientes, setListaClientes] = useState<any[]>([])
   const [listaPedidos, setListaPedidos] = useState<any[]>([])
   const [listaPagamentos, setListaPagamentos] = useState<any[]>([])
-  const [desbloqueados, setDesbloqueados] = useState<number[]>([])
+  const [listaCupons, setListaCupons] = useState<any[]>([])
 
   // Dados da Loja (Supabase)
   const [dadosLoja, setDadosLoja] = useState({
@@ -46,48 +46,36 @@ export default function AdminPanel() {
   const [logoArquivo, setLogoArquivo] = useState<File | null>(null)
   const [carregandoLogo, setCarregandoLogo] = useState(false)
 
-  // Estados Produto (com controle de visibilidade do form e filtros)
+  // Estados Produto
   const [mostrarFormProd, setMostrarFormProd] = useState(false)
   const [mostrarFiltrosProd, setMostrarFiltrosProd] = useState(false)
   const [filtroProdNome, setFiltroProdNome] = useState('')
   const [filtroProdCat, setFiltroProdCat] = useState('')
   const [idProdutoEdicao, setIdProdutoEdicao] = useState<number | null>(null)
   const [nome, setNome] = useState(''); const [preco, setPreco] = useState(''); const [estoque, setEstoque] = useState('0'); const [categoria, setCategoria] = useState(''); const [descricao, setDescricao] = useState(''); const [imagemProduto, setImagemProduto] = useState<File | null>(null); const [carregandoProduto, setCarregandoProduto] = useState(false); const [gerandoIA, setGerandoIA] = useState(false)
-  const [isDestaque, setIsDestaque] = useState(false)
-  const [isNovo, setIsNovo] = useState(false)
-  const [isPromocao, setIsPromocao] = useState(false)
+  const [isDestaque, setIsDestaque] = useState(false); const [isNovo, setIsNovo] = useState(false); const [isPromocao, setIsPromocao] = useState(false)
 
-  // Estados Banners e Categorias
+  // Banners & Categorias
   const [tituloBanner, setTituloBanner] = useState(''); const [imagemBanner, setImagemBanner] = useState<File | null>(null); const [carregandoBanner, setCarregandoBanner] = useState(false)
   const [novaCategoria, setNovaCategoria] = useState(''); const [carregandoCategoria, setCarregandoCategoria] = useState(false)
 
-  // Estados Vendedor
+  // Vendedores
   const [nomeVendedor, setNomeVendedor] = useState(''); const [telefoneVendedor, setTelefoneVendedor] = useState(''); const [comissaoVendedor, setComissaoVendedor] = useState(''); const [senhaVendedor, setSenhaVendedor] = useState(''); const [idVendedorEdicao, setIdVendedorEdicao] = useState<number | null>(null); const [carregandoVendedor, setCarregandoVendedor] = useState(false)
 
-  // Estados Pagamentos
+  // Pagamentos
   const [idPagamentoEdicao, setIdPagamentoEdicao] = useState<number | null>(null)
   const [pagTitulo, setPagTitulo] = useState(''); const [pagDescricao, setPagDescricao] = useState(''); const [pagValorMinimo, setPagValorMinimo] = useState(''); const [pagOrdem, setPagOrdem] = useState('1'); const [pagStatusAtivo, setPagStatusAtivo] = useState(true); const [carregandoPagamento, setCarregandoPagamento] = useState(false)
+
+  // Cupons
+  const [cupomCodigo, setCupomCodigo] = useState(''); const [cupomDesconto, setCupomDesconto] = useState(''); const [carregandoCupom, setCarregandoCupom] = useState(false)
 
   // Clientes CRM
   const [mostrarFiltrosCli, setMostrarFiltrosCli] = useState(false)
   const [mostrarFormCli, setMostrarFormCli] = useState(false)
   const [idCliEdicao, setIdCliEdicao] = useState<number | null>(null)
   const [cliTipoPessoa, setCliTipoPessoa] = useState('Jurídica')
-  const [cliRazao, setCliRazao] = useState('')
-  const [cliFantasia, setCliFantasia] = useState('')
-  const [cliCpfCnpj, setCliCpfCnpj] = useState('')
-  const [cliTelefone, setCliTelefone] = useState('')
-  const [cliCidade, setCliCidade] = useState('')
-  const [cliEstado, setCliEstado] = useState('')
-  const [cliRepresentante, setCliRepresentante] = useState('')
-  const [cliStatusAtivo, setCliStatusAtivo] = useState(true)
-  const [cliSenha, setCliSenha] = useState('')
-  const [filtroCliNome, setFiltroCliNome] = useState('')
-  const [filtroCliCpf, setFiltroCliCpf] = useState('')
-  const [filtroCliRep, setFiltroCliRep] = useState('')
-  const [filtroCliCidade, setFiltroCliCidade] = useState('')
-  const [filtroCliEstado, setFiltroCliEstado] = useState('')
-  const [filtroCliStatus, setFiltroCliStatus] = useState('')
+  const [cliRazao, setCliRazao] = useState(''); const [cliFantasia, setCliFantasia] = useState(''); const [cliCpfCnpj, setCliCpfCnpj] = useState(''); const [cliTelefone, setCliTelefone] = useState(''); const [cliCidade, setCliCidade] = useState(''); const [cliEstado, setCliEstado] = useState(''); const [cliRepresentante, setCliRepresentante] = useState(''); const [cliStatusAtivo, setCliStatusAtivo] = useState(true); const [cliSenha, setCliSenha] = useState('')
+  const [filtroCliNome, setFiltroCliNome] = useState(''); const [filtroCliCpf, setFiltroCliCpf] = useState(''); const [filtroCliCidade, setFiltroCliCidade] = useState('')
 
   // Gestão de Pedidos (Filtros)
   const [mostrarFiltrosPed, setMostrarFiltrosPed] = useState(false)
@@ -103,6 +91,7 @@ export default function AdminPanel() {
     const { data: cli } = await supabase.from('pessoas').select('*').eq('tipo', 'cliente').order('id', { ascending: false }); if (cli) setListaClientes(usuarioLogado.tipo === 'admin' ? cli : cli.filter(c => c.representante_id === usuarioLogado.id))
     const { data: ped } = await supabase.from('pedidos').select('*').order('id', { ascending: false }); if (ped) setListaPedidos(usuarioLogado.tipo === 'admin' ? ped : ped.filter(p => p.vendedor_id === usuarioLogado.id))
     const { data: pag } = await supabase.from('formas_pagamento').select('*').order('ordem', { ascending: true }); if (pag) setListaPagamentos(pag)
+    const { data: cup } = await supabase.from('cupons').select('*').order('id', { ascending: false }); if (cup) setListaCupons(cup)
 
     const { data: configData } = await supabase.from('configuracoes_loja').select('*').eq('id', 1).single()
     if (configData) {
@@ -145,7 +134,7 @@ export default function AdminPanel() {
     if (!error) { setMensagem('Item excluído!'); carregarDados() }
   }
 
-  // Produtos & Relatórios PDF/CSV
+  // Produtos
   const limparFormProd = () => { setIdProdutoEdicao(null); setNome(''); setPreco(''); setEstoque('0'); setDescricao(''); setImagemProduto(null); setIsDestaque(false); setIsNovo(false); setIsPromocao(false) }
   const iniciarEdicaoProduto = (p: any) => { 
     setIdProdutoEdicao(p.id); setNome(p.nome); setPreco(p.preco.toString()); setEstoque((p.estoque || 0).toString())
@@ -269,6 +258,16 @@ export default function AdminPanel() {
     cancelarEdicaoPagamento(); carregarDados(); setCarregandoPagamento(false) 
   }
 
+  // Cupons
+  const handleSalvarCupom = async (e: React.FormEvent) => {
+    e.preventDefault(); setCarregandoCupom(true)
+    const descNum = parseFloat(cupomDesconto.replace(',', '.')) || 0
+    const { error } = await supabase.from('cupons').insert([{ codigo: cupomCodigo.toUpperCase().trim(), desconto_percentual: descNum, ativo: true }])
+    if (!error) { setMensagem('Cupom criado com sucesso!'); setCupomCodigo(''); setCupomDesconto(''); carregarDados() }
+    else { setMensagem(`Erro ao criar cupom: ${error.message}`) }
+    setCarregandoCupom(false)
+  }
+
   // Clientes CRM
   const limparFormCli = () => { setIdCliEdicao(null); setCliRazao(''); setCliFantasia(''); setCliCpfCnpj(''); setCliTelefone(''); setCliCidade(''); setCliEstado(''); setCliRepresentante(''); setCliStatusAtivo(true); setCliTipoPessoa('Jurídica'); setCliSenha('') }
   const iniciarEdicaoCliente = (c: any) => { setIdCliEdicao(c.id); setCliRazao(c.nome); setCliFantasia(c.nome_fantasia || ''); setCliCpfCnpj(c.cpf_cnpj || ''); setCliTelefone(c.telefone || ''); setCliCidade(c.cidade || ''); setCliEstado(c.estado || ''); setCliRepresentante(c.representante_id ? c.representante_id.toString() : ''); setCliStatusAtivo(c.status_ativo); setCliTipoPessoa(c.tipo_pessoa || 'Física'); setCliSenha(c.senha || ''); setMostrarFormCli(true); setMostrarFiltrosCli(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
@@ -279,15 +278,12 @@ export default function AdminPanel() {
     else { await supabase.from('pessoas').insert([payload]); setMensagem('Cliente cadastrado!') } 
     limparFormCli(); setMostrarFormCli(false); carregarDados() 
   }
-  const limparFiltrosCli = () => { setFiltroCliNome(''); setFiltroCliCpf(''); setFiltroCliRep(''); setFiltroCliCidade(''); setFiltroCliEstado(''); setFiltroCliStatus('') }
+  const limparFiltrosCli = () => { setFiltroCliNome(''); setFiltroCliCpf(''); setFiltroCliCidade('') }
   const clientesFiltrados = listaClientes.filter(c => { 
     const matchNome = filtroCliNome ? (c.nome?.toLowerCase().includes(filtroCliNome.toLowerCase()) || c.nome_fantasia?.toLowerCase().includes(filtroCliNome.toLowerCase())) : true
     const matchCpf = filtroCliCpf ? c.cpf_cnpj?.includes(filtroCliCpf) : true
-    const matchRep = filtroCliRep ? c.representante_id?.toString() === filtroCliRep : true
     const matchCid = filtroCliCidade ? c.cidade?.toLowerCase().includes(filtroCliCidade.toLowerCase()) : true
-    const matchEst = filtroCliEstado ? c.estado === filtroCliEstado : true
-    const matchStat = filtroCliStatus !== '' ? c.status_ativo?.toString() === filtroCliStatus : true
-    return matchNome && matchCpf && matchRep && matchCid && matchEst && matchStat 
+    return matchNome && matchCpf && matchCid 
   })
   const exportarClientesCSV = () => {
     const headers = ['ID', 'Nome/Razao', 'CPF/CNPJ', 'Telefone', 'Cidade', 'Estado', 'Tipo']
@@ -296,16 +292,26 @@ export default function AdminPanel() {
     const link = document.createElement('a'); link.setAttribute('href', encodeURI(csvContent)); link.setAttribute('download', 'relatorio_clientes.csv'); document.body.appendChild(link); link.click(); document.body.removeChild(link)
   }
 
-  // Pedidos & Filtros & Exportação CSV
-  const atualizarStatusPedido = async (id: number, novoStatus: string) => { await supabase.from('pedidos').update({ status: novoStatus }).eq('id', id); setMensagem(`Pedido #${id} atualizado`); carregarDados() }
+  // Pedidos & Status Pagamento & WhatsApp
+  const atualizarStatusPedido = async (id: number, novoStatus: string) => { await supabase.from('pedidos').update({ status: novoStatus }).eq('id', id); setMensagem(`Status do pedido #${id} atualizado`); carregarDados() }
+  const atualizarStatusPagamento = async (id: number, novoStatusPag: string) => { await supabase.from('pedidos').update({ status_pagamento: novoStatusPag }).eq('id', id); setMensagem(`Pagamento do pedido #${id} atualizado`); carregarDados() }
+  
+  const notificarClienteWp = (pedido: any) => {
+    const cliente = listaClientes.find(c => c.id === pedido.cliente_id)
+    const tel = cliente?.telefone || ''
+    if (!tel) return alert('Cliente não possui telefone cadastrado.')
+    const msg = `Olá ${cliente.nome}, informamos que o seu pedido *#${pedido.id}* está com o status operacional: *${pedido.status}* (Pagamento: *${pedido.status_pagamento || 'Aguardando'}*). Total: R$ ${Number(pedido.valor_total).toFixed(2)}. Obrigado pela preferência!`
+    window.open(`https://wa.me/55${tel.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank')
+  }
+
   const pedidosFiltrados = listaPedidos.filter(p => {
     const matchId = filtroPedId ? p.id.toString().includes(filtroPedId) : true
     const matchStatus = filtroPedStatus ? p.status === filtroPedStatus : true
     return matchId && matchStatus
   })
   const exportarPedidosCSV = () => {
-    const headers = ['ID', 'Data', 'Status', 'Pagamento', 'Valor Total']
-    const rows = listaPedidos.map(p => [p.id, `"${new Date(p.data_pedido).toLocaleDateString('pt-BR')}"`, `"${p.status}"`, `"${p.forma_pagamento || '-'}"`, p.valor_total.toString().replace('.', ',')])
+    const headers = ['ID', 'Data', 'Status Operacional', 'Status Pagamento', 'Pagamento', 'Valor Total']
+    const rows = listaPedidos.map(p => [p.id, `"${new Date(p.data_pedido).toLocaleDateString('pt-BR')}"`, `"${p.status}"`, `"${p.status_pagamento || 'Aguardando'}"`, `"${p.forma_pagamento || '-'}"`, p.valor_total.toString().replace('.', ',')])
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(';'), ...rows.map(e => e.join(';'))].join('\n')
     const link = document.createElement('a'); link.setAttribute('href', encodeURI(csvContent)); link.setAttribute('download', 'relatorio_pedidos.csv'); document.body.appendChild(link); link.click(); document.body.removeChild(link)
   }
@@ -319,7 +325,7 @@ export default function AdminPanel() {
       const vendedor = listaVendedores.find(v => v.id === pedido.vendedor_id)
       // @ts-ignore
       const html2pdf = (await import('html2pdf.js')).default
-      const htmlPdf = `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333;"><h1 style="color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Pedido de Venda #${pedido.id} (2ª Via)</h1><div style="display: flex; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;"><div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;"><h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3><p style="margin: 5px 0;"><strong>Nome:</strong> ${cliente?.nome || 'Desconhecido'}</p><p style="margin: 5px 0;"><strong>Telefone:</strong> ${cliente?.telefone || '-'}</p></div><div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;"><h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados Comerciais</h3><p style="margin: 5px 0;"><strong>Responsável:</strong> ${vendedor?.nome || 'Não informado'}</p><p style="margin: 5px 0;"><strong>Pagamento:</strong> ${pedido.forma_pagamento || '-'}</p><p style="margin: 5px 0;"><strong>Status:</strong> ${pedido.status}</p></div></div><table style="width: 100%; border-collapse: collapse; margin-top: 20px;"><thead><tr style="background-color: #2563eb; color: white;"><th style="padding: 12px; text-align: left;">Produto</th><th style="padding: 12px; text-align: center;">Qtd</th><th style="padding: 12px; text-align: right;">V. Unitário</th><th style="padding: 12px; text-align: right;">Subtotal</th></tr></thead><tbody>${itens?.map((item: any) => `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 12px;">${item.produto_nome}</td><td style="padding: 12px; text-align: center;">${item.quantidade}</td><td style="padding: 12px; text-align: right;">R$ ${Number(item.preco_unitario).toFixed(2)}</td><td style="padding: 12px; text-align: right;">R$ ${(Number(item.preco_unitario) * Number(item.quantidade)).toFixed(2)}</td></tr>`).join('')}</tbody></table><div style="margin-top: 20px; text-align: right; font-size: 18px;"><strong>Total do Pedido: <span style="color: #166534;">R$ ${Number(pedido.valor_total).toFixed(2)}</span></strong></div></div>`
+      const htmlPdf = `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333;"><h1 style="color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Pedido de Venda #${pedido.id} (2ª Via)</h1><div style="display: flex; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;"><div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;"><h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3><p style="margin: 5px 0;"><strong>Nome:</strong> ${cliente?.nome || 'Desconhecido'}</p><p style="margin: 5px 0;"><strong>Telefone:</strong> ${cliente?.telefone || '-'}</p></div><div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;"><h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados Comerciais</h3><p style="margin: 5px 0;"><strong>Responsável:</strong> ${vendedor?.nome || 'Não informado'}</p><p style="margin: 5px 0;"><strong>Pagamento:</strong> ${pedido.forma_pagamento || '-'}</p><p style="margin: 5px 0;"><strong>Status Pagto:</strong> ${pedido.status_pagamento || 'Aguardando'}</p><p style="margin: 5px 0;"><strong>Status:</strong> ${pedido.status}</p></div></div><table style="width: 100%; border-collapse: collapse; margin-top: 20px;"><thead><tr style="background-color: #2563eb; color: white;"><th style="padding: 12px; text-align: left;">Produto</th><th style="padding: 12px; text-align: center;">Qtd</th><th style="padding: 12px; text-align: right;">V. Unitário</th><th style="padding: 12px; text-align: right;">Subtotal</th></tr></thead><tbody>${itens?.map((item: any) => `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 12px;">${item.produto_nome}</td><td style="padding: 12px; text-align: center;">${item.quantidade}</td><td style="padding: 12px; text-align: right;">R$ ${Number(item.preco_unitario).toFixed(2)}</td><td style="padding: 12px; text-align: right;">R$ ${(Number(item.preco_unitario) * Number(item.quantidade)).toFixed(2)}</td></tr>`).join('')}</tbody></table><div style="margin-top: 20px; text-align: right; font-size: 18px;"><strong>Total do Pedido: <span style="color: #166534;">R$ ${Number(pedido.valor_total).toFixed(2)}</span></strong></div></div>`
       const opcoesPdf: any = { margin: 10, filename: `reimpressao_pedido_${pedido.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
       await html2pdf().set(opcoesPdf).from(htmlPdf).save()
       setMensagem('Reimpressão gerada com sucesso!')
@@ -327,22 +333,30 @@ export default function AdminPanel() {
   }
 
   const gerarRelatorioPDF = async () => {
-    setMensagem('Gerando PDF do relatório...')
+    setMensagem('Gerando PDF detalhado de comissões...')
     try {
       // @ts-ignore
       const html2pdf = (await import('html2pdf.js')).default
-      let linhasTabela = ''; let totalGeralVendido = 0; let totalGeralComissao = 0
+      let conteudoVendedores = ''; let totalGeralVendido = 0; let totalGeralComissao = 0
       listaVendedores.forEach(vend => {
         const pedidosDesteVendedor = listaPedidos.filter(p => p.vendedor_id === vend.id)
-        const totalVendido = pedidosDesteVendedor.reduce((acc, pedido) => acc + Number(pedido.valor_total), 0)
-        const valorComissao = totalVendido * (vend.comissao_percentual / 100)
-        totalGeralVendido += totalVendido; totalGeralComissao += valorComissao
-        linhasTabela += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 12px;">${vend.nome}</td><td style="padding: 12px; text-align: center;">${vend.comissao_percentual}%</td><td style="padding: 12px; text-align: right;">R$ ${totalVendido.toFixed(2)}</td><td style="padding: 12px; text-align: right; color: #166534; font-weight: bold;">R$ ${valorComissao.toFixed(2)}</td></tr>`
+        if (pedidosDesteVendedor.length === 0) return
+        let totalVendidoVend = 0; let linhasPedidos = ''
+        pedidosDesteVendedor.forEach(ped => {
+          const cliente = listaClientes.find(c => c.id === ped.cliente_id)
+          const valorPed = Number(ped.valor_total)
+          const comissaoPed = valorPed * (vend.comissao_percentual / 100)
+          totalVendidoVend += valorPed
+          linhasPedidos += `<tr style="border-bottom: 1px solid #f3f4f6; font-size: 12px;"><td style="padding: 8px;">#${ped.id}</td><td style="padding: 8px;">${new Date(ped.data_pedido).toLocaleDateString('pt-BR')}</td><td style="padding: 8px;">${cliente?.nome || 'Desconhecido'}</td><td style="padding: 8px; text-align: right;">R$ ${valorPed.toFixed(2)}</td><td style="padding: 8px; text-align: right; color: #166534; font-weight: bold;">R$ ${comissaoPed.toFixed(2)}</td></tr>`
+        })
+        const valorComissaoVend = totalVendidoVend * (vend.comissao_percentual / 100)
+        totalGeralVendido += totalVendidoVend; totalGeralComissao += valorComissaoVend
+        conteudoVendedores += `<div style="margin-bottom: 30px;"><h3 style="background-color: #f3f4f6; padding: 10px; margin: 0 0 10px 0; color: #1f2937; border-left: 4px solid #9333ea;">Vendedor: <strong>${vend.nome}</strong> (Taxa: ${vend.comissao_percentual}%)</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #f9fafb; font-size: 11px; color: #6b7280; text-transform: uppercase;"><th style="padding: 6px; text-align: left;">Pedido</th><th style="padding: 6px; text-align: left;">Data</th><th style="padding: 6px; text-align: left;">Cliente</th><th style="padding: 6px; text-align: right;">Valor Pedido</th><th style="padding: 6px; text-align: right;">Comissão</th></tr></thead><tbody>${linhasPedidos}</tbody></table><div style="text-align: right; padding-top: 8px; font-size: 13px;">Total Vendas: <strong>R$ ${totalVendidoVend.toFixed(2)}</strong> | Comissões: <strong style="color: #9333ea;">R$ ${valorComissaoVend.toFixed(2)}</strong></div></div>`
       })
-      const htmlPdf = `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333;"><h1 style="color: #9333ea; text-align: center; border-bottom: 2px solid #9333ea; padding-bottom: 10px;">Fechamento de Comissões</h1><table style="width: 100%; border-collapse: collapse; margin-top: 30px;"><thead style="background-color: #f3f4f6;"><tr><th style="padding: 12px; text-align: left;">Vendedor</th><th style="padding: 12px;">Taxa (%)</th><th style="padding: 12px; text-align: right;">Total Vendido</th><th style="padding: 12px; text-align: right;">Comissão a Pagar</th></tr></thead><tbody>${linhasTabela}</tbody></table><div style="margin-top: 40px; padding: 20px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="display: flex; justify-content: space-between; font-size: 16px;"><span>Total Vendido Bruto:</span><strong>R$ ${totalGeralVendido.toFixed(2)}</strong></div><div style="display: flex; justify-content: space-between; font-size: 20px; margin-top: 15px; color: #9333ea;"><span>Total de Comissões a Pagar:</span><strong>R$ ${totalGeralComissao.toFixed(2)}</strong></div></div></div>`
-      const opcoesPdf: any = { margin: 10, filename: `relatorio_comissoes.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
+      const htmlPdf = `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333;"><h1 style="color: #9333ea; text-align: center; border-bottom: 2px solid #9333ea; padding-bottom: 10px;">Fechamento Detalhado de Comissões</h1><p style="text-align: center; color: #666; font-size: 12px; margin-bottom: 25px;">Data de emissão: ${new Date().toLocaleDateString('pt-BR')}</p>${conteudoVendedores || '<p style="text-align: center; color: #666;">Nenhum pedido registrado para comissão.</p>'}<div style="margin-top: 30px; padding: 15px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;"><div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px;"><span>Total Vendido Bruto Geral:</span><strong>R$ ${totalGeralVendido.toFixed(2)}</strong></div><div style="display: flex; justify-content: space-between; font-size: 18px; color: #9333ea;"><span>Total Geral de Comissões a Pagar:</span><strong>R$ ${totalGeralComissao.toFixed(2)}</strong></div></div></div>`
+      const opcoesPdf: any = { margin: 10, filename: `fechamento_comissoes_detalhado.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
       await html2pdf().set(opcoesPdf).from(htmlPdf).save()
-      setMensagem('PDF do relatório gerado com sucesso!')
+      setMensagem('PDF detalhado gerado com sucesso!')
     } catch (error: any) { setMensagem(`Erro ao gerar PDF: ${error.message}`) }
   }
 
@@ -362,6 +376,12 @@ export default function AdminPanel() {
     )
   }
 
+  // Cálculos para o Dashboard
+  const faturamentoTotal = listaPedidos.reduce((acc, p) => acc + Number(p.valor_total), 0)
+  const totalPedidosCount = listaPedidos.length
+  const totalClientesCount = listaClientes.length
+  const estoqueBaixoCount = listaProdutos.filter(p => (p.estoque ?? 0) <= 5).length
+
   return (
     <main className="min-h-screen p-4 md:p-8 bg-gray-50 text-gray-900">
       <div className="max-w-[1400px] mx-auto bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -374,14 +394,17 @@ export default function AdminPanel() {
           <button onClick={() => setUsuarioLogado(null)} className="text-sm bg-gray-100 hover:bg-red-100 text-gray-700 font-bold py-2 px-4 rounded-lg">Sair</button>
         </div>
 
+        {/* MENU DE ABAS ATUALIZADO COM DASHBOARD E CUPONS */}
         <div className="flex flex-wrap border-b border-gray-200 mb-6 text-sm">
           {usuarioLogado.tipo === 'admin' && (
             <>
+              <button onClick={() => setAbaAtiva('dashboard')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'dashboard' ? 'border-b-2 border-amber-500 text-amber-600' : 'text-gray-500'}`}>📊 Dashboard</button>
               <button onClick={() => setAbaAtiva('produto')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'produto' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Produtos</button>
               <button onClick={() => setAbaAtiva('banner')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'banner' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Banners</button>
               <button onClick={() => setAbaAtiva('categoria')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'categoria' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Categorias</button>
               <button onClick={() => setAbaAtiva('vendedor')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'vendedor' ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-500'}`}>Vendedores</button>
               <button onClick={() => setAbaAtiva('pagamentos')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'pagamentos' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}>Pagamentos</button>
+              <button onClick={() => setAbaAtiva('cupons')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'cupons' ? 'border-b-2 border-rose-600 text-rose-600' : 'text-gray-500'}`}>🎟️ Cupons</button>
               <button onClick={() => setAbaAtiva('minhaLoja')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'minhaLoja' ? 'border-b-2 border-amber-600 text-amber-600' : 'text-gray-500'}`}>🏢 Minha Loja</button>
             </>
           )}
@@ -389,6 +412,31 @@ export default function AdminPanel() {
           <button onClick={() => setAbaAtiva('pedidos')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'pedidos' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500'}`}>Gestão de Pedidos</button>
           <button onClick={() => setAbaAtiva('relatorio')} className={`flex-1 py-3 font-semibold ${abaAtiva === 'relatorio' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}>Relatórios</button>
         </div>
+
+        {/* ABA DASHBOARD */}
+        {abaAtiva === 'dashboard' && usuarioLogado.tipo === 'admin' && (
+          <div className="space-y-6">
+            <h3 className="font-bold text-xl text-gray-800">Visão Geral da Loja</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl shadow-sm">
+                <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">Faturamento Total</p>
+                <p className="text-3xl font-extrabold text-blue-900">R$ {faturamentoTotal.toFixed(2)}</p>
+              </div>
+              <div className="bg-orange-50 border border-orange-100 p-6 rounded-2xl shadow-sm">
+                <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-1">Total de Pedidos</p>
+                <p className="text-3xl font-extrabold text-orange-900">{totalPedidosCount}</p>
+              </div>
+              <div className="bg-teal-50 border border-teal-100 p-6 rounded-2xl shadow-sm">
+                <p className="text-xs font-bold text-teal-600 uppercase tracking-wider mb-1">Clientes Cadastrados</p>
+                <p className="text-3xl font-extrabold text-teal-900">{totalClientesCount}</p>
+              </div>
+              <div className="bg-red-50 border border-red-100 p-6 rounded-2xl shadow-sm">
+                <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-1">Estoque Baixo (&le; 5)</p>
+                <p className="text-3xl font-extrabold text-red-900">{estoqueBaixoCount} <span className="text-xs font-normal">itens</span></p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ABA MINHA LOJA */}
         {abaAtiva === 'minhaLoja' && usuarioLogado.tipo === 'admin' && (
@@ -427,7 +475,7 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* ABA PRODUTOS (Com botões Adicionar, Filtrar, PDF e Exportar CSV) */}
+        {/* ABA PRODUTOS */}
         {abaAtiva === 'produto' && usuarioLogado.tipo === 'admin' && (
           <div>
             <div className="flex gap-2 mb-6 flex-wrap">
@@ -504,7 +552,7 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* OUTRAS ABAS */}
+        {/* ABA BANNERS */}
         {abaAtiva === 'banner' && usuarioLogado.tipo === 'admin' && (
           <div className="max-w-2xl mx-auto">
             <form onSubmit={handleSalvarBanner} className="space-y-4 mb-8">
@@ -517,6 +565,7 @@ export default function AdminPanel() {
           </div>
         )}
 
+        {/* ABA CATEGORIAS */}
         {abaAtiva === 'categoria' && usuarioLogado.tipo === 'admin' && (
           <div className="max-w-2xl mx-auto">
             <form onSubmit={handleSalvarCategoria} className="space-y-4 mb-8">
@@ -528,6 +577,7 @@ export default function AdminPanel() {
           </div>
         )}
 
+        {/* ABA VENDEDORES */}
         {abaAtiva === 'vendedor' && usuarioLogado.tipo === 'admin' && (
           <div className="max-w-2xl mx-auto">
             <form onSubmit={handleSalvarVendedor} className={`space-y-4 mb-8 p-4 rounded-xl border ${idVendedorEdicao ? 'bg-blue-50/30 border-blue-200' : 'bg-green-50/30 border-green-100'}`}>
@@ -548,6 +598,7 @@ export default function AdminPanel() {
           </div>
         )}
 
+        {/* ABA PAGAMENTOS */}
         {abaAtiva === 'pagamentos' && usuarioLogado.tipo === 'admin' && (
           <div>
             <form onSubmit={handleSalvarPagamento} className={`space-y-4 mb-8 p-4 rounded-xl border ${idPagamentoEdicao ? 'bg-indigo-50/50 border-indigo-200' : 'bg-gray-50 border-gray-200'}`}>
@@ -587,6 +638,37 @@ export default function AdminPanel() {
           </div>
         )}
 
+        {/* ABA CUPONS DE DESCONTO */}
+        {abaAtiva === 'cupons' && usuarioLogado.tipo === 'admin' && (
+          <div className="max-w-2xl mx-auto">
+            <form onSubmit={handleSalvarCupom} className="space-y-4 mb-8 p-6 bg-rose-50/50 rounded-2xl border border-rose-100">
+              <h3 className="font-bold text-rose-700 text-lg mb-2">🎟️ Criar Cupom de Desconto</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label className="block text-sm font-medium mb-1 text-gray-700">Código do Cupom</label><input type="text" required value={cupomCodigo} onChange={e=>setCupomCodigo(e.target.value)} className="w-full p-2.5 border rounded-xl bg-white" placeholder="Ex: PROMO10" /></div>
+                <div><label className="block text-sm font-medium mb-1 text-gray-700">Desconto (%)</label><input type="number" step="0.1" required value={cupomDesconto} onChange={e=>setCupomDesconto(e.target.value)} className="w-full p-2.5 border rounded-xl bg-white" placeholder="Ex: 10" /></div>
+              </div>
+              <button type="submit" disabled={carregandoCupom} className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl transition-all shadow-sm">Cadastrar Cupom</button>
+            </form>
+            <h3 className="font-bold border-b pb-2 mb-4 text-gray-800">Cupons Ativos</h3>
+            <div className="overflow-x-auto border shadow-sm rounded-lg">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 border-b"><tr><th className="p-3">Código</th><th className="p-3 text-center">Desconto</th><th className="p-3 text-center">Status</th><th className="p-3 text-center">Ações</th></tr></thead>
+                <tbody className="divide-y">
+                  {listaCupons.map(c => (
+                    <tr key={c.id} className="hover:bg-gray-50">
+                      <td className="p-3 font-bold font-mono text-rose-600">{c.codigo}</td>
+                      <td className="p-3 text-center font-bold">{c.desconto_percentual}%</td>
+                      <td className="p-3 text-center"><span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Ativo</span></td>
+                      <td className="p-3 text-center"><button onClick={() => excluirItem('cupons', c.id)} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold">Excluir</button></td>
+                    </tr>
+                  ))}
+                  {listaCupons.length === 0 && (<tr><td colSpan={4} className="p-6 text-center text-gray-400">Nenhum cupom cadastrado.</td></tr>)}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* ABA CLIENTES */}
         {abaAtiva === 'clientes' && (
           <div>
@@ -597,11 +679,11 @@ export default function AdminPanel() {
             </div>
 
             {mostrarFiltrosCli && (
-              <div className="bg-gray-50 p-4 border rounded-md mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="bg-gray-50 p-4 border rounded-md mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div><label className="block text-gray-600 mb-1">Nome / Razão</label><input type="text" value={filtroCliNome} onChange={e=>setFiltroCliNome(e.target.value)} className="w-full p-2 border rounded bg-white" /></div>
                 <div><label className="block text-gray-600 mb-1">CPF / CNPJ</label><input type="text" value={filtroCliCpf} onChange={e=>setFiltroCliCpf(e.target.value)} className="w-full p-2 border rounded bg-white" /></div>
                 <div><label className="block text-gray-600 mb-1">Cidade</label><input type="text" value={filtroCliCidade} onChange={e=>setFiltroCliCidade(e.target.value)} className="w-full p-2 border rounded bg-white" /></div>
-                <div className="flex items-end"><button onClick={limparFiltrosCli} className="bg-red-500 text-white px-4 py-2 rounded font-bold text-xs">Limpar Filtros</button></div>
+                <div className="md:col-span-3 flex justify-end"><button onClick={limparFiltrosCli} className="bg-red-500 text-white px-4 py-1.5 rounded font-bold text-xs">Limpar Filtros</button></div>
               </div>
             )}
 
@@ -648,7 +730,7 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* ABA GESTÃO DE PEDIDOS */}
+        {/* ABA GESTÃO DE PEDIDOS (Com Status de Pagamento Duplo e Botão de WhatsApp) */}
         {abaAtiva === 'pedidos' && (
           <div>
             <div className="flex gap-2 mb-6">
@@ -660,7 +742,7 @@ export default function AdminPanel() {
               <div className="bg-gray-50 p-4 border rounded-md mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div><label className="block text-gray-600 mb-1">ID do Pedido</label><input type="text" value={filtroPedId} onChange={e=>setFiltroPedId(e.target.value)} className="w-full p-2 border rounded bg-white" placeholder="Ex: 12" /></div>
                 <div>
-                  <label className="block text-gray-600 mb-1">Status</label>
+                  <label className="block text-gray-600 mb-1">Status Operacional</label>
                   <select value={filtroPedStatus} onChange={e=>setFiltroPedStatus(e.target.value)} className="w-full p-2 border rounded bg-white">
                     <option value="">Todos os Status</option>
                     <option value="Pendente">Pendente</option>
@@ -674,10 +756,20 @@ export default function AdminPanel() {
             )}
 
             <h3 className="font-bold text-xl mb-1">Controle de Pedidos</h3>
-            <p className="text-sm text-gray-500 border-b pb-4 mb-6">Acompanhe todos os pedidos, altere status e reimprima em PDF.</p>
+            <p className="text-sm text-gray-500 border-b pb-4 mb-6">Acompanhe pedidos, atualize status financeiro e operacional, e envie notificações via WhatsApp.</p>
             <div className="overflow-x-auto border rounded-xl shadow-sm">
               <table className="w-full text-sm text-left">
-                <thead className="bg-gray-100"><tr><th className="p-3">ID</th><th className="p-3">Data</th><th className="p-3">Pagamento</th><th className="p-3 text-right">Total</th><th className="p-3 text-center">Status</th><th className="p-3 text-center">Ações</th></tr></thead>
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="p-3">ID</th>
+                    <th className="p-3">Data</th>
+                    <th className="p-3">Pagamento</th>
+                    <th className="p-3 text-right">Total</th>
+                    <th className="p-3 text-center">Status Pagto</th>
+                    <th className="p-3 text-center">Status Operacional</th>
+                    <th className="p-3 text-center">Ações</th>
+                  </tr>
+                </thead>
                 <tbody className="divide-y">
                   {pedidosFiltrados.map(pedido => (
                     <tr key={pedido.id} className="hover:bg-gray-50">
@@ -686,49 +778,101 @@ export default function AdminPanel() {
                       <td className="p-3 text-blue-600 font-medium">{pedido.forma_pagamento || '-'}</td>
                       <td className="p-3 text-right font-bold text-green-700">R$ {Number(pedido.valor_total).toFixed(2)}</td>
                       <td className="p-3 text-center">
+                        <select value={pedido.status_pagamento || 'Aguardando Pagamento'} onChange={e => atualizarStatusPagamento(pedido.id, e.target.value)} className="text-xs font-bold p-1 border rounded bg-white">
+                          <option value="Aguardando Pagamento">Aguardando Pagamento</option>
+                          <option value="Pago">Pago</option>
+                          <option value="Estornado">Estornado</option>
+                        </select>
+                      </td>
+                      <td className="p-3 text-center">
                         <select value={pedido.status} onChange={e => atualizarStatusPedido(pedido.id, e.target.value)} className="text-xs font-bold p-1 border rounded bg-white">
-                          <option value="Pendente">Pendente</option><option value="Em Produção">Em Produção</option><option value="Despachado">Despachado</option><option value="Concluído">Concluído</option>
+                          <option value="Pendente">Pendente</option>
+                          <option value="Em Produção">Em Produção</option>
+                          <option value="Despachado">Despachado</option>
+                          <option value="Concluído">Concluído</option>
                         </select>
                       </td>
                       <td className="p-3 text-center flex justify-center gap-2">
-                        <button onClick={() => reimprimirPedido(pedido)} className="bg-blue-500 text-white px-3 py-1 rounded text-xs font-bold">📄 PDF</button>
-                        <button onClick={() => excluirItem('pedidos', pedido.id)} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold">Excluir</button>
+                        <button onClick={() => notificarClienteWp(pedido)} className="bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded text-xs font-bold" title="Notificar Cliente via WhatsApp">📱 Wp</button>
+                        <button onClick={() => reimprimirPedido(pedido)} className="bg-blue-500 hover:bg-blue-600 text-white px-2.5 py-1 rounded text-xs font-bold">📄 PDF</button>
+                        <button onClick={() => excluirItem('pedidos', pedido.id)} className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1 rounded text-xs font-bold">Excluir</button>
                       </td>
                     </tr>
                   ))}
-                  {pedidosFiltrados.length === 0 && (<tr><td colSpan={6} className="p-8 text-center text-gray-500">Nenhum pedido encontrado.</td></tr>)}
+                  {pedidosFiltrados.length === 0 && (<tr><td colSpan={7} className="p-8 text-center text-gray-500">Nenhum pedido encontrado.</td></tr>)}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {/* ABA RELATÓRIOS */}
+        {/* ABA RELATÓRIOS (Detalhado por Vendedor) */}
         {abaAtiva === 'relatorio' && (
           <div>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-xl">Fechamento de Comissões</h3>
-              <button onClick={gerarRelatorioPDF} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded text-sm">📄 Baixar PDF Relatório</button>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="font-bold text-xl text-gray-800">Fechamento Detalhado de Comissões</h3>
+                <p className="text-sm text-gray-500">Visualize as vendas e quais pedidos compõem a comissão de cada vendedor.</p>
+              </div>
+              <button onClick={gerarRelatorioPDF} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-5 rounded-xl text-sm shadow-sm transition-all">📄 Baixar PDF Detalhado</button>
             </div>
-            <div className="overflow-hidden border rounded-xl shadow-sm">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-gray-100"><tr><th className="p-4">Vendedor</th><th className="p-4 text-center">Taxa (%)</th><th className="p-4 text-right">Total Vendido</th><th className="p-4 text-right text-purple-700">Comissão a Pagar</th></tr></thead>
-                <tbody className="divide-y">
-                  {listaVendedores.map(vend => {
-                    const pedidosVend = listaPedidos.filter(p => p.vendedor_id === vend.id)
-                    const totalVendido = pedidosVend.reduce((acc, p) => acc + Number(p.valor_total), 0)
-                    const comissao = totalVendido * (vend.comissao_percentual / 100)
-                    return (
-                      <tr key={vend.id} className="hover:bg-gray-50">
-                        <td className="p-4 font-medium">{vend.nome}</td>
-                        <td className="p-4 text-center">{vend.comissao_percentual}%</td>
-                        <td className="p-4 text-right font-bold text-blue-600">R$ {totalVendido.toFixed(2)}</td>
-                        <td className="p-4 text-right font-bold text-green-600 bg-green-50/30">R$ {comissao.toFixed(2)}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+
+            <div className="space-y-8">
+              {listaVendedores.map(vend => {
+                const pedidosVend = listaPedidos.filter(p => p.vendedor_id === vend.id)
+                const totalVendido = pedidosVend.reduce((acc, p) => acc + Number(p.valor_total), 0)
+                const comissao = totalVendido * (vend.comissao_percentual / 100)
+
+                return (
+                  <div key={vend.id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-100 pb-4 mb-4 gap-2">
+                      <div>
+                        <h4 className="text-lg font-bold text-gray-900">{vend.nome}</h4>
+                        <p className="text-xs text-gray-500">Telefone: {vend.telefone} | Taxa de Comissão: <strong className="text-purple-600">{vend.comissao_percentual}%</strong></p>
+                      </div>
+                      <div className="text-left md:text-right">
+                        <span className="text-xs text-gray-400 block">Total a Pagar</span>
+                        <span className="text-xl font-extrabold text-green-600">R$ {comissao.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-gray-50 text-gray-600 uppercase tracking-wider">
+                          <tr>
+                            <th className="p-3">Pedido</th>
+                            <th className="p-3">Data</th>
+                            <th className="p-3">Cliente</th>
+                            <th className="p-3">Forma Pagamento</th>
+                            <th className="p-3 text-right">Valor do Pedido</th>
+                            <th className="p-3 text-right">Comissão Gerada</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {pedidosVend.map(ped => {
+                            const cliente = listaClientes.find(c => c.id === ped.cliente_id)
+                            const valPed = Number(ped.valor_total)
+                            const comPed = valPed * (vend.comissao_percentual / 100)
+                            return (
+                              <tr key={ped.id} className="hover:bg-gray-50/50">
+                                <td className="p-3 font-bold text-gray-900">#{ped.id}</td>
+                                <td className="p-3 text-gray-600">{new Date(ped.data_pedido).toLocaleDateString('pt-BR')}</td>
+                                <td className="p-3 text-gray-800 font-medium">{cliente?.nome || 'Desconhecido'}</td>
+                                <td className="p-3 text-blue-600">{ped.forma_pagamento || '-'}</td>
+                                <td className="p-3 text-right font-bold text-gray-700">R$ {valPed.toFixed(2)}</td>
+                                <td className="p-3 text-right font-bold text-green-600">R$ {comPed.toFixed(2)}</td>
+                              </tr>
+                            )
+                          })}
+                          {pedidosVend.length === 0 && (
+                            <tr><td colSpan={6} className="p-4 text-center text-gray-400 italic">Nenhum pedido registrado para este vendedor.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

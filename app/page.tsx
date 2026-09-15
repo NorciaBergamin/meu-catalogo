@@ -21,6 +21,11 @@ export default function Home() {
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false)
   const [carrinhoCarregado, setCarrinhoCarregado] = useState(false)
 
+  // Estados de Cupom de Desconto
+  const [codigoCupom, setCodigoCupom] = useState('')
+  const [cupomAplicado, setCupomAplicado] = useState<any>(null)
+  const [erroCupom, setErroCupom] = useState('')
+
   const [listaVendedores, setListaVendedores] = useState<any[]>([])
   const [listaPagamentos, setListaPagamentos] = useState<any[]>([])
   const [finalizando, setFinalizando] = useState(false)
@@ -122,7 +127,10 @@ export default function Home() {
       const { data: itens, error } = await supabase.from('itens_pedido').select('*').eq('pedido_id', pedido.id)
       if (error) throw error
       const vendedor = listaVendedores.find(v => v.id === pedido.vendedor_id)
-      const nomeVendedor = vendedor ? vendedor.nome : 'Não informado'
+      
+      const subtotalPedido = itens?.reduce((acc: number, item: any) => acc + (Number(item.preco_unitario) * Number(item.quantidade)), 0) || pedido.valor_total
+      const temCupom = pedido.cupom ? `<p style="margin: 5px 0; color: #166534;"><strong>Cupom Aplicado:</strong> ${pedido.cupom}</p>` : ''
+
       // @ts-ignore
       const html2pdf = (await import('html2pdf.js')).default
       const htmlPdf = `
@@ -132,15 +140,14 @@ export default function Home() {
             <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
               <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3>
               <p style="margin: 5px 0;"><strong>Nome:</strong> ${clienteLogado.nome}</p>
-              <p style="margin: 5px 0;"><strong>CPF/CNPJ:</strong> ${clienteLogado.cpf_cnpj}</p>
-              <p style="margin: 5px 0;"><strong>Localidade:</strong> ${clienteLogado.cidade} - ${clienteLogado.estado}</p>
               <p style="margin: 5px 0;"><strong>Telefone:</strong> ${clienteLogado.telefone}</p>
             </div>
             <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
               <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados Comerciais</h3>
-              <p style="margin: 5px 0;"><strong>Vendedor:</strong> ${nomeVendedor}</p>
+              <p style="margin: 5px 0;"><strong>Vendedor:</strong> ${vendedor?.nome || 'Não informado'}</p>
               <p style="margin: 5px 0;"><strong>Pagamento:</strong> ${pedido.forma_pagamento || '-'}</p>
               <p style="margin: 5px 0;"><strong>Status:</strong> ${pedido.status}</p>
+              ${temCupom}
             </div>
           </div>
           <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
@@ -155,8 +162,9 @@ export default function Home() {
               `).join('')}
             </tbody>
           </table>
-          <div style="margin-top: 20px; text-align: right; font-size: 18px;">
-            <strong>Total do Pedido: <span style="color: #166534;">R$ ${Number(pedido.valor_total).toFixed(2)}</span></strong>
+          <div style="margin-top: 20px; text-align: right; font-size: 16px;">
+            ${pedido.cupom ? `<p style="margin: 3px 0; color: #666;">Subtotal: R$ ${Number(subtotalPedido).toFixed(2)}</p><p style="margin: 3px 0; color: #166534;">Desconto Cupom: Aplicado</p>` : ''}
+            <strong style="font-size: 18px;">Total do Pedido: <span style="color: #166534;">R$ ${Number(pedido.valor_total).toFixed(2)}</span></strong>
           </div>
         </div>
       `
@@ -190,7 +198,23 @@ export default function Home() {
     })) 
   }
   const removerDoCarrinho = (produtoId: number) => setCarrinho(prev => prev.filter(item => item.produto.id !== produtoId))
+  
   const valorTotalCarrinho = carrinho.reduce((acc, item) => acc + (item.produto.preco * item.quantidade), 0)
+  const valorDesconto = cupomAplicado ? valorTotalCarrinho * (Number(cupomAplicado.desconto_percentual) / 100) : 0
+  const valorFinalComDesconto = Math.max(0, valorTotalCarrinho - valorDesconto)
+
+  const aplicarCupom = async () => {
+    setErroCupom('')
+    if (!codigoCupom.trim()) return
+    const { data, error } = await supabase.from('cupons').select('*').eq('codigo', codigoCupom.toUpperCase().trim()).eq('ativo', true).single()
+    if (error || !data) {
+      setErroCupom('Cupom inválido ou expirado.')
+      setCupomAplicado(null)
+    } else {
+      setCupomAplicado(data)
+      setErroCupom(`Cupom de ${data.desconto_percentual}% aplicado!`)
+    }
+  }
 
   const handleFinalizarCompra = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -199,7 +223,15 @@ export default function Home() {
 
     setFinalizando(true)
     try {
-      const { data: pedido, error: erroPed } = await supabase.from('pedidos').insert([{ cliente_id: clienteLogado.id, vendedor_id: parseInt(vendedorSelecionado), valor_total: valorTotalCarrinho, status: 'Pendente', forma_pagamento: formaPagamento }]).select().single()
+      const { data: pedido, error: erroPed } = await supabase.from('pedidos').insert([{ 
+        cliente_id: clienteLogado.id, 
+        vendedor_id: parseInt(vendedorSelecionado), 
+        valor_total: valorFinalComDesconto, 
+        status: 'Pendente', 
+        status_pagamento: 'Aguardando Pagamento',
+        forma_pagamento: formaPagamento,
+        cupom: cupomAplicado ? `${cupomAplicado.codigo} (${cupomAplicado.desconto_percentual}% off)` : null // Salva o cupom
+      }]).select().single()
       if (erroPed) throw erroPed
 
       const itensBD = carrinho.map(item => ({ pedido_id: pedido.id, produto_nome: item.produto.nome, quantidade: item.quantidade, preco_unitario: item.produto.preco }))
@@ -212,10 +244,11 @@ export default function Home() {
 
       const vendedorObj = listaVendedores.find(v => v.id === parseInt(vendedorSelecionado))
       const itensTexto = carrinho.map(i => `• ${i.quantidade}x ${i.produto.nome} (R$ ${(i.produto.preco * i.quantidade).toFixed(2)})`).join('%0A')
-      const mensagemWp = `*NOVO PEDIDO #${pedido.id}*%0A%0A*Cliente:* ${clienteLogado.nome}%0A*Vendedor:* ${vendedorObj?.nome || '-'}%0A*Pagamento:* ${formaPagamento}%0A%0A*Itens:*%0A${itensTexto}%0A%0A*Total:* R$ ${valorTotalCarrinho.toFixed(2)}`
+      const cupomTexto = cupomAplicado ? `%0A*Cupom Aplicado:* ${cupomAplicado.codigo} (${cupomAplicado.desconto_percentual}% off)` : ''
+      const mensagemWp = `*NOVO PEDIDO #${pedido.id}*%0A%0A*Cliente:* ${clienteLogado.nome}%0A*Vendedor:* ${vendedorObj?.nome || '-'}%0A*Pagamento:* ${formaPagamento}${cupomTexto}%0A%0A*Itens:*%0A${itensTexto}%0A%0A*Total:* R$ ${valorFinalComDesconto.toFixed(2)}`
 
       alert('Pedido finalizado com sucesso e estoque atualizado!')
-      setCarrinho([]); setIsCarrinhoAberto(false); setVendedorSelecionado('')
+      setCarrinho([]); setIsCarrinhoAberto(false); setVendedorSelecionado(''); setCupomAplicado(null); setCodigoCupom('')
 
       if (dadosLoja.whatsapp) {
         window.open(`https://wa.me/${dadosLoja.whatsapp}?text=${mensagemWp}`, '_blank')
@@ -422,9 +455,35 @@ export default function Home() {
                       </div>
                     </div>
                   ))}
-                  <div className="pt-4 text-right border-b border-gray-100 pb-6 mb-6">
-                    <p className="text-gray-500 text-sm">Total do Pedido</p>
-                    <p className="text-3xl font-extrabold text-green-600">R$ {valorTotalCarrinho.toFixed(2)}</p>
+
+                  {/* CAMPO DE CUPOM DE DESCONTO */}
+                  <div className="pt-2 pb-2">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Cupom de Desconto</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={codigoCupom} 
+                        onChange={e => setCodigoCupom(e.target.value)} 
+                        placeholder="Ex: PROMO10" 
+                        className="flex-1 p-2.5 border border-gray-200 rounded-xl text-sm uppercase outline-none focus:border-blue-500 bg-gray-50 font-bold"
+                      />
+                      <button type="button" onClick={aplicarCupom} className="bg-gray-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-colors">
+                        Aplicar
+                      </button>
+                    </div>
+                    {erroCupom && <p className={`text-xs mt-1.5 font-bold ${cupomAplicado ? 'text-green-600' : 'text-red-500'}`}>{erroCupom}</p>}
+                  </div>
+
+                  {/* VALORES TOTAIS COM DESCONTO */}
+                  <div className="pt-2 text-right border-b border-gray-100 pb-6 mb-6">
+                    {cupomAplicado && (
+                      <>
+                        <p className="text-gray-400 text-xs line-through">Subtotal: R$ {valorTotalCarrinho.toFixed(2)}</p>
+                        <p className="text-rose-600 text-xs font-bold">Desconto ({cupomAplicado.desconto_percentual}%): -R$ {valorDesconto.toFixed(2)}</p>
+                      </>
+                    )}
+                    <p className="text-gray-500 text-sm mt-1">Total do Pedido</p>
+                    <p className="text-3xl font-extrabold text-green-600">R$ {valorFinalComDesconto.toFixed(2)}</p>
                   </div>
 
                   {!clienteLogado ? (
