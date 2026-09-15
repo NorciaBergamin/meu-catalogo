@@ -117,6 +117,54 @@ export default function Home() {
   const fazerLogout = () => { setClienteLogado(null); localStorage.removeItem('erp_cliente_sessao') }
   const abrirMeusPedidos = async () => { setModalMeusPedidosAberto(true); setCarregandoPedidos(true); const { data } = await supabase.from('pedidos').select('*').eq('cliente_id', clienteLogado.id).order('data_pedido', { ascending: false }); if (data) setMeusPedidos(data); setCarregandoPedidos(false) }
   
+  const reimprimirPedidoCliente = async (pedido: any) => {
+    try {
+      const { data: itens, error } = await supabase.from('itens_pedido').select('*').eq('pedido_id', pedido.id)
+      if (error) throw error
+      const vendedor = listaVendedores.find(v => v.id === pedido.vendedor_id)
+      const nomeVendedor = vendedor ? vendedor.nome : 'Não informado'
+      // @ts-ignore
+      const html2pdf = (await import('html2pdf.js')).default
+      const htmlPdf = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h1 style="color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">Pedido de Venda #${pedido.id} (2ª Via)</h1>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
+            <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados do Cliente</h3>
+              <p style="margin: 5px 0;"><strong>Nome:</strong> ${clienteLogado.nome}</p>
+              <p style="margin: 5px 0;"><strong>CPF/CNPJ:</strong> ${clienteLogado.cpf_cnpj}</p>
+              <p style="margin: 5px 0;"><strong>Localidade:</strong> ${clienteLogado.cidade} - ${clienteLogado.estado}</p>
+              <p style="margin: 5px 0;"><strong>Telefone:</strong> ${clienteLogado.telefone}</p>
+            </div>
+            <div style="width: 48%; padding: 15px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <h3 style="margin-top: 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Dados Comerciais</h3>
+              <p style="margin: 5px 0;"><strong>Vendedor:</strong> ${nomeVendedor}</p>
+              <p style="margin: 5px 0;"><strong>Pagamento:</strong> ${pedido.forma_pagamento || '-'}</p>
+              <p style="margin: 5px 0;"><strong>Status:</strong> ${pedido.status}</p>
+            </div>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <thead><tr style="background-color: #2563eb; color: white;"><th style="padding: 12px; text-align: left;">Produto</th><th style="padding: 12px; text-align: center;">Qtd</th><th style="padding: 12px; text-align: right;">V. Unitário</th><th style="padding: 12px; text-align: right;">Subtotal</th></tr></thead>
+            <tbody>
+              ${itens?.map((item: any) => `
+                <tr style="border-bottom: 1px solid #e5e7eb;">
+                  <td style="padding: 12px;">${item.produto_nome}</td><td style="padding: 12px; text-align: center;">${item.quantidade}</td>
+                  <td style="padding: 12px; text-align: right;">R$ ${Number(item.preco_unitario).toFixed(2)}</td>
+                  <td style="padding: 12px; text-align: right;">R$ ${(Number(item.preco_unitario) * Number(item.quantidade)).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div style="margin-top: 20px; text-align: right; font-size: 18px;">
+            <strong>Total do Pedido: <span style="color: #166534;">R$ ${Number(pedido.valor_total).toFixed(2)}</span></strong>
+          </div>
+        </div>
+      `
+      const opcoesPdf: any = { margin: 10, filename: `reimpressao_pedido_${pedido.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
+      await html2pdf().set(opcoesPdf).from(htmlPdf).save()
+    } catch (error: any) { alert(`Erro ao gerar PDF: ${error.message}`) }
+  }
+
   const adicionarAoCarrinho = (produto: any, quantidadeDesejada: number) => { 
     if ((produto.estoque || 0) < quantidadeDesejada) return alert(`Desculpe, temos apenas ${produto.estoque || 0} unidades em estoque.`)
     setCarrinho(prev => { 
@@ -237,7 +285,6 @@ export default function Home() {
 
         <div className="max-w-[1400px] mx-auto px-4 flex flex-col md:flex-row gap-8">
           
-          {/* CATEGORIAS (Design suave e limpo) */}
           <aside className="w-full md:w-1/4 lg:w-1/5">
             <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm sticky top-6">
               <h3 className="font-bold text-gray-400 border-b border-gray-100 pb-3 mb-3 uppercase tracking-wider text-xs">Categorias</h3>
@@ -248,7 +295,6 @@ export default function Home() {
             </div>
           </aside>
 
-          {/* BUSCA + ORDENAÇÃO + VITRINE */}
           <div className="w-full md:w-3/4 lg:w-4/5">
             <div className="flex flex-col md:flex-row gap-4 mb-6">
               <div className="relative flex-1">
@@ -314,6 +360,208 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* MODAL DO PRODUTO */}
+      {produtoSelecionado && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl relative flex flex-col md:flex-row max-h-[90vh]">
+            <button onClick={() => setProdutoSelecionado(null)} className="absolute top-4 right-4 bg-gray-100 hover:bg-red-500 hover:text-white rounded-full w-8 h-8 font-bold z-10 transition-colors">✕</button>
+            <div className="w-full md:w-1/2 h-64 md:h-auto bg-gray-100 relative">
+              {produtoSelecionado.imagem_url ? <img src={produtoSelecionado.imagem_url} className="w-full h-full object-cover absolute inset-0" /> : <span className="flex h-full items-center justify-center text-gray-400">Sem Imagem</span>}
+            </div>
+            <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col overflow-y-auto">
+              <div className="flex-1">
+                {produtoSelecionado.categoria && <span className="text-xs font-bold text-blue-600 mb-2 block uppercase tracking-wider">{produtoSelecionado.categoria}</span>}
+                <h2 className="text-2xl font-bold mb-4 text-gray-900">{produtoSelecionado.nome}</h2>
+                <div className="text-gray-600 mb-6 text-sm leading-relaxed">{produtoSelecionado.descricao ? <p>{produtoSelecionado.descricao}</p> : <p className="italic text-gray-400">Sem descrição.</p>}</div>
+              </div>
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <p className="text-green-600 font-extrabold text-3xl mb-4">R$ {produtoSelecionado.preco.toFixed(2)}</p>
+                <div className="flex items-center gap-4 mb-4">
+                  <span className="text-gray-700 font-medium text-sm">Quantidade:</span>
+                  <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
+                    <button onClick={() => setQuantidadeModal(prev => Math.max(1, prev - 1))} className="px-4 py-2 bg-gray-50 font-bold hover:bg-gray-100 transition-colors">-</button>
+                    <span className="px-4 py-2 font-semibold bg-white w-12 text-center">{quantidadeModal}</span>
+                    <button onClick={() => setQuantidadeModal(prev => prev + 1)} className="px-4 py-2 bg-gray-50 font-bold hover:bg-gray-100 transition-colors">+</button>
+                  </div>
+                </div>
+                <button onClick={() => adicionarAoCarrinho(produtoSelecionado, quantidadeModal)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition-all">Adicionar ao Carrinho 🛒</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GAVETA DO CARRINHO */}
+      {isCarrinhoAberto && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex justify-end backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h2 className="text-xl font-bold text-gray-800">Seu Carrinho</h2>
+              <button onClick={() => setIsCarrinhoAberto(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {carrinho.length === 0 ? (<p className="text-center text-gray-400 mt-10">Seu carrinho está vazio.</p>) : (
+                <div className="space-y-4">
+                  {carrinho.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center border-b border-gray-100 pb-4">
+                      <div className="flex-1 pr-4">
+                        <p className="font-semibold text-gray-800 leading-tight">{item.produto.nome}</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden h-7">
+                            <button onClick={() => alterarQuantidadeItem(item.produto.id, -1)} className="px-2 bg-gray-50 font-bold">-</button>
+                            <span className="px-3 text-sm font-semibold">{item.quantidade}</span>
+                            <button onClick={() => alterarQuantidadeItem(item.produto.id, 1)} className="px-2 bg-gray-50 font-bold">+</button>
+                          </div>
+                          <span className="text-xs text-gray-400">x R$ {item.produto.preco.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <p className="font-bold text-green-600">R$ {(item.produto.preco * item.quantidade).toFixed(2)}</p>
+                        <button onClick={() => removerDoCarrinho(item.produto.id)} className="text-red-500 text-xs bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors">Remover</button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="pt-4 text-right border-b border-gray-100 pb-6 mb-6">
+                    <p className="text-gray-500 text-sm">Total do Pedido</p>
+                    <p className="text-3xl font-extrabold text-green-600">R$ {valorTotalCarrinho.toFixed(2)}</p>
+                  </div>
+
+                  {!clienteLogado ? (
+                    <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl text-center">
+                      <p className="text-blue-900 font-medium mb-4 text-sm">Identifique-se para salvar seu histórico e gerar o pedido.</p>
+                      <button onClick={() => { setIsCarrinhoAberto(false); setModalAuthAberto(true); }} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition-all">
+                        Fazer Login ou Cadastrar
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleFinalizarCompra} className="space-y-4 bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                      <h3 className="font-bold text-gray-800 border-b border-gray-200 pb-2">Finalizar Compra</h3>
+                      <div className="bg-white p-3 rounded-xl border border-gray-200 text-sm text-gray-600">
+                        <p>Comprando como: <strong className="text-gray-900">{clienteLogado.nome}</strong></p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700">Forma de Pagamento</label>
+                        <select required value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                          {listaPagamentos.length === 0 ? <option value="Pix">Pix</option> : listaPagamentos.map(p => <option key={p.id} value={p.titulo}>{p.titulo}</option>)}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700">Vendedor Responsável</label>
+                        <select required value={vendedorSelecionado} onChange={e => setVendedorSelecionado(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                          <option value="">Selecione quem te atendeu...</option>
+                          {listaVendedores.map(v => (<option key={v.id} value={v.id}>{v.nome}</option>))}
+                        </select>
+                      </div>
+
+                      <div className="flex flex-col gap-2 pt-2">
+                        <button type="button" onClick={() => setIsCarrinhoAberto(false)} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-xl transition-colors">
+                          Continuar Comprando
+                        </button>
+                        <button type="submit" disabled={finalizando} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl disabled:opacity-50 transition-all shadow-md">
+                          {finalizando ? 'Processando...' : 'Gerar Pedido e Enviar WhatsApp'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL MEUS PEDIDOS */}
+      {modalMeusPedidosAberto && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden relative max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h2 className="text-xl font-bold text-gray-800">Meus Pedidos</h2>
+              <button onClick={() => setModalMeusPedidosAberto(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 bg-gray-50">
+              {carregandoPedidos ? (
+                <p className="text-center text-gray-500">Buscando seu histórico...</p>
+              ) : meusPedidos.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-gray-500 mb-4">Você ainda não realizou nenhum pedido.</p>
+                  <button onClick={() => setModalMeusPedidosAberto(false)} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-sm">Explorar Produtos</button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {meusPedidos.map(pedido => (
+                    <div key={pedido.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="font-black text-lg text-gray-900">#{pedido.id}</span>
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                            pedido.status === 'Pendente' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                            pedido.status === 'Em Produção' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            pedido.status === 'Despachado' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            'bg-green-50 text-green-700 border-green-200'
+                          }`}>
+                            {pedido.status}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500">Realizado em {new Date(pedido.data_pedido).toLocaleDateString('pt-BR')}</p>
+                        <p className="text-sm text-gray-500">Pagamento: {pedido.forma_pagamento || '-'}</p>
+                      </div>
+                      <div className="text-left md:text-right flex flex-col md:items-end gap-3">
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">Total do Pedido</p>
+                          <p className="text-2xl font-extrabold text-green-600">R$ {Number(pedido.valor_total).toFixed(2)}</p>
+                        </div>
+                        <button onClick={() => reimprimirPedidoCliente(pedido)} className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold py-2 px-4 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 w-full md:w-auto shadow-sm">
+                          🖨️ Baixar PDF
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL AUTH (LOGIN / CADASTRO) */}
+      {modalAuthAberto && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative">
+            <button onClick={() => setModalAuthAberto(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl z-10">✕</button>
+            <div className="flex text-center border-b border-gray-100">
+              <button onClick={() => setModoAuth('login')} className={`flex-1 py-4 font-bold ${modoAuth === 'login' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/20' : 'text-gray-400 hover:bg-gray-50'}`}>Entrar</button>
+              <button onClick={() => setModoAuth('cadastro')} className={`flex-1 py-4 font-bold ${modoAuth === 'cadastro' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/20' : 'text-gray-400 hover:bg-gray-50'}`}>Criar Conta</button>
+            </div>
+            <div className="p-6">
+              {modoAuth === 'login' ? (
+                <form onSubmit={efetuarLogin} className="space-y-4">
+                  <div><label className="block text-sm font-medium mb-1 text-gray-700">CPF, CNPJ ou Telefone</label><input type="text" required value={authLogin} onChange={e=>setAuthLogin(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:border-blue-500 text-sm" placeholder="Ex: 00000000000" /></div>
+                  <div><label className="block text-sm font-medium mb-1 text-gray-700">Senha</label><input type="password" required value={authSenha} onChange={e=>setAuthSenha(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:border-blue-500 text-sm" placeholder="••••••••" /></div>
+                  <button type="submit" disabled={carregandoAuth} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl mt-2 transition-all shadow-md">{carregandoAuth ? 'Aguarde...' : 'Entrar na Conta'}</button>
+                </form>
+              ) : (
+                <form onSubmit={efetuarCadastro} className="space-y-3 max-h-[60vh] overflow-y-auto px-1">
+                  <div className="flex gap-2">
+                    <div className="w-1/3"><label className="block text-xs font-medium mb-1 text-gray-700">Tipo</label><select value={cadTipoPessoa} onChange={e=>setCadTipoPessoa(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl bg-white text-sm"><option>Física</option><option>Jurídica</option></select></div>
+                    <div className="w-2/3"><label className="block text-xs font-medium mb-1 text-gray-700">CPF / CNPJ</label><input type="text" required value={cadCpfCnpj} onChange={e=>setCadCpfCnpj(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm" placeholder="000.000.000-00" /></div>
+                  </div>
+                  <div><label className="block text-xs font-medium mb-1 text-gray-700">Nome / Razão Social</label><input type="text" required value={cadNome} onChange={e=>setCadNome(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm" placeholder="Nome completo" /></div>
+                  <div><label className="block text-xs font-medium mb-1 text-gray-700">Telefone / WhatsApp</label><input type="text" required value={cadTelefone} onChange={e=>setCadTelefone(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm" placeholder="(00) 00000-0000" /></div>
+                  <div className="flex gap-2">
+                    <div className="w-2/3"><label className="block text-xs font-medium mb-1 text-gray-700">Cidade</label><input type="text" required value={cadCidade} onChange={e=>setCadCidade(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm" placeholder="Sua cidade" /></div>
+                    <div className="w-1/3"><label className="block text-xs font-medium mb-1 text-gray-700">Estado</label><select required value={cadEstado} onChange={e=>setCadEstado(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl bg-white text-sm"><option value="">UF</option><option value="PR">PR</option><option value="SP">SP</option><option value="SC">SC</option><option value="RS">RS</option><option value="MT">MT</option></select></div>
+                  </div>
+                  <div className="pt-2"><label className="block text-xs font-medium mb-1 text-gray-700">Crie uma Senha</label><input type="password" required value={cadSenha} onChange={e=>setCadSenha(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm" placeholder="Para acessar seus pedidos depois" /></div>
+                  <button type="submit" disabled={carregandoAuth} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl mt-4 shadow-md transition-all">{carregandoAuth ? 'Criando Conta...' : 'Cadastrar e Continuar'}</button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* RODAPÉ */}
       <footer className="bg-gray-900 text-gray-300 py-12 px-6 mt-20">
