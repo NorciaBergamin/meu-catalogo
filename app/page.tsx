@@ -301,16 +301,23 @@ export default function Home() {
           </div>
         </header>
 
-        {/* CORREÇÃO DO BANNER: Ajustado para object-contain em celulares para não cortar a imagem */}
-        {banners.length > 0 && (
-          <div className="relative w-full h-[220px] sm:h-[300px] md:h-[400px] bg-gray-900 overflow-hidden shadow-inner flex items-center justify-center">
-            {banners.map((banner, index) => (
-              <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}>
-                <img src={banner.imagem_url} className="w-full h-full object-contain md:object-cover bg-black" />
-              </div>
-            ))}
-          </div>
-        )}
+        {/* BANNERS SEPARADOS PARA WEB E APP */}
+        {banners.length > 0 && (() => {
+          // Detecta se é dispositivo móvel ou exibe filtrado
+          const bannersWeb = banners.filter(b => b.tipo === 'web' || !b.tipo)
+          const bannersApp = banners.filter(b => b.tipo === 'app')
+          const bannersParaExibir = bannersApp.length > 0 && typeof window !== 'undefined' && window.innerWidth < 768 ? bannersApp : (bannersWeb.length > 0 ? bannersWeb : banners)
+
+          return (
+            <div className="relative w-full h-[200px] sm:h-[280px] md:h-[380px] bg-gray-900 overflow-hidden shadow-inner flex items-center justify-center">
+              {bannersParaExibir.map((banner, index) => (
+                <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}>
+                  <img src={banner.imagem_url} className="w-full h-full object-cover bg-black" />
+                </div>
+              ))}
+            </div>
+          )
+        })()}
 
         <button onClick={() => setIsCarrinhoAberto(true)} className="fixed bottom-6 right-6 bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 z-40 flex items-center gap-2 font-bold transition-transform hover:scale-110">
           🛒 <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full absolute -top-2 -right-2">{carrinho.length}</span>

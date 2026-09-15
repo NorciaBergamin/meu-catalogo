@@ -249,7 +249,24 @@ export default function AdminPanel() {
     setGerandoIA(false)
   }
 
-  const handleSalvarBanner = async (e: React.FormEvent) => { e.preventDefault(); if (!imagemBanner) return; setCarregandoBanner(true); const ext = imagemBanner.name.split('.').pop(); const nomeArq = `banner_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemBanner); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq); await supabase.from('banners').insert([{ titulo: tituloBanner, imagem_url: data.publicUrl }]); setMensagem('Banner salvo!'); setTituloBanner(''); setImagemBanner(null); await carregarDados(); setCarregandoBanner(false) }
+ const [tipoBanner, setTipoBanner] = useState('web')
+
+  const handleSalvarBanner = async (e: React.FormEvent) => { 
+    e.preventDefault()
+    if (!imagemBanner) return 
+    setCarregandoBanner(true) 
+    const ext = imagemBanner.name.split('.').pop()
+    const nomeArq = `banner_${Math.random()}.${ext}`
+    await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemBanner)
+    const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq)
+    await supabase.from('banners').insert([{ titulo: tituloBanner, imagem_url: data.publicUrl, tipo: tipoBanner }])
+    setMensagem('Banner salvo com sucesso!')
+    setTituloBanner('')
+    setImagemBanner(null)
+    setTipoBanner('web')
+    await carregarDados()
+    setCarregandoBanner(false) 
+  }
   const handleSalvarCategoria = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoCategoria(true); await supabase.from('categorias').insert([{ nome: novaCategoria }]); setMensagem('Categoria criada!'); setNovaCategoria(''); await carregarDados(); setCarregandoCategoria(false) }
 
   const iniciarEdicaoVendedor = (v: any) => { setIdVendedorEdicao(v.id); setNomeVendedor(v.nome); setTelefoneVendedor(v.telefone); setComissaoVendedor(v.comissao_percentual.toString()); setSenhaVendedor(v.senha || ''); window.scrollTo({ top: 0, behavior: 'smooth' }) }
@@ -563,15 +580,53 @@ export default function AdminPanel() {
         )}
 
         {/* ABA BANNERS */}
+        {/* ABA BANNERS */}
         {abaAtiva === 'banner' && usuarioLogado.tipo === 'admin' && (
           <div className="max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm">
             <form onSubmit={handleSalvarBanner} className="space-y-4 mb-8">
-              <div><label className="block text-sm font-medium mb-1 text-gray-700">Título</label><input type="text" required value={tituloBanner} onChange={e => setTituloBanner(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none" /></div>
-              <div><label className="block text-sm font-medium mb-1 text-gray-700">Imagem</label><input type="file" required accept="image/*" onChange={e => setImagemBanner(e.target.files?.[0] || null)} className="w-full p-2.5 border border-gray-200 rounded-xl bg-white text-sm" /></div>
-              <button type="submit" disabled={carregandoBanner} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-sm">Publicar Banner</button>
+              <h3 className="font-bold text-gray-800 text-lg mb-4">Gerenciar Banners (Web e App)</h3>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Título / Identificação</label>
+                <input type="text" required value={tituloBanner} onChange={e => setTituloBanner(e.target.value)} placeholder="Ex: Promoção de Inauguração" className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Onde este banner vai aparecer?</label>
+                <select value={tipoBanner} onChange={e => setTipoBanner(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none font-medium">
+                  <option value="web">🌐 Versão Web / Site (Tamanho ideal: 1200 x 400 px)</option>
+                  <option value="app">📱 Versão Aplicativo / Celular (Tamanho ideal: 800 x 600 px)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Arquivo de Imagem</label>
+                <input type="file" required accept="image/*" onChange={e => setImagemBanner(e.target.files?.[0] || null)} className="w-full p-2.5 border border-gray-200 rounded-xl bg-white text-sm" />
+              </div>
+
+              <button type="submit" disabled={carregandoBanner} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-sm">
+                {carregandoBanner ? 'Publicando...' : 'Publicar Banner'}
+              </button>
             </form>
+
             <h3 className="font-bold text-gray-800 border-b border-gray-100 pb-3 mb-4">Banners Ativos</h3>
-            <ul className="space-y-2">{listaBanners.map(b => (<li key={b.id} className="flex justify-between items-center text-sm bg-gray-50/50 p-3 rounded-xl border border-gray-100 font-medium"><span>{b.titulo}</span><button onClick={() => excluirItem('banners', b.id)} className="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-2.5 py-1 rounded-lg">Excluir</button></li>))}</ul>
+            <div className="space-y-3">
+              {listaBanners.map(b => (
+                <div key={b.id} className="flex justify-between items-center text-sm bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    {b.imagem_url && <img src={b.imagem_url} className="w-12 h-12 object-cover rounded-lg border border-gray-200" />}
+                    <div>
+                      <p className="font-bold text-gray-900">{b.titulo || 'Sem título'}</p>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${b.tipo === 'app' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {b.tipo === 'app' ? '📱 App (Celular)' : '🌐 Web (Site)'}
+                      </span>
+                    </div>
+                  </div>
+                  <button onClick={() => excluirItem('banners', b.id)} className="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors">Excluir</button>
+                </div>
+              ))}
+              {listaBanners.length === 0 && <p className="text-center text-gray-400 py-4">Nenhum banner cadastrado.</p>}
+            </div>
           </div>
         )}
 
