@@ -878,7 +878,7 @@ export default function AdminPanel() {
                                 <td className="p-3 text-gray-800 font-medium">{cliente?.nome || 'Desconhecido'}</td>
                                 <td className="p-3 text-blue-600">{ped.forma_pagamento || '-'}</td>
                                 <td className="p-3 text-right font-bold text-gray-700">R$ {valPed.toFixed(2)}</td>
-                                <td className="p-3 text-right font-bold text-green-600">R$ {comInf = comPed}R$ {comPed.toFixed(2)}</td>
+                                <td className="p-3 text-right font-bold text-green-600">R$ {comPed.toFixed(2)}</td>
                               </tr>
                             )
                           })}
