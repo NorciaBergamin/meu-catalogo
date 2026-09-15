@@ -104,7 +104,22 @@ export default function AdminPanel() {
     }
   }
 
-  useEffect(() => { carregarDados() }, [usuarioLogado])
+  // Carregar dados e ativar escuta em Tempo Real (Realtime)
+  useEffect(() => { 
+    if (!usuarioLogado) return
+    carregarDados() 
+
+    const channel = supabase
+      .channel('admin-realtime-changes')
+      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+        carregarDados()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [usuarioLogado])
 
   const salvarConfigLoja = async (e: React.FormEvent) => {
     e.preventDefault(); setCarregandoLogo(true); setMensagem('Salvando configurações...')
@@ -125,13 +140,13 @@ export default function AdminPanel() {
     const { error } = await supabase.from('configuracoes_loja').update(payload).eq('id', 1)
     if (!error) { setDadosLoja(prev => ({ ...prev, logo: novaLogoUrl })); setMensagem('✅ Configurações salvas!') }
     else { setMensagem(`❌ Erro: ${error.message}`) }
-    setCarregandoLogo(false); setLogoArquivo(null)
+    setCarregandoLogo(false); setLogoArquivo(null); await carregarDados()
   }
 
   const excluirItem = async (tabela: string, id: number) => {
     if (!confirm(`Tem certeza que deseja excluir este item?`)) return
     const { error } = await supabase.from(tabela).delete().eq('id', id)
-    if (!error) { setMensagem('Item excluído!'); carregarDados() }
+    if (!error) { setMensagem('Item excluído!'); await carregarDados() }
   }
 
   // Produtos
@@ -165,7 +180,7 @@ export default function AdminPanel() {
       await supabase.from('produtos').insert([payload])
       setMensagem('Produto salvo!')
     }
-    limparFormProd(); setMostrarFormProd(false); carregarDados(); setCarregandoProduto(false)
+    limparFormProd(); setMostrarFormProd(false); await carregarDados(); setCarregandoProduto(false)
   }
   const produtosFiltrados = listaProdutos.filter(p => {
     const matchNome = filtroProdNome ? p.nome.toLowerCase().includes(filtroProdNome.toLowerCase()) : true
@@ -237,13 +252,13 @@ export default function AdminPanel() {
   }
 
   // Banners & Categorias
-  const handleSalvarBanner = async (e: React.FormEvent) => { e.preventDefault(); if (!imagemBanner) return; setCarregandoBanner(true); const ext = imagemBanner.name.split('.').pop(); const nomeArq = `banner_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemBanner); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq); await supabase.from('banners').insert([{ titulo: tituloBanner, imagem_url: data.publicUrl }]); setMensagem('Banner salvo!'); setTituloBanner(''); setImagemBanner(null); carregarDados(); setCarregandoBanner(false) }
-  const handleSalvarCategoria = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoCategoria(true); await supabase.from('categorias').insert([{ nome: novaCategoria }]); setMensagem('Categoria criada!'); setNovaCategoria(''); carregarDados(); setCarregandoCategoria(false) }
+  const handleSalvarBanner = async (e: React.FormEvent) => { e.preventDefault(); if (!imagemBanner) return; setCarregandoBanner(true); const ext = imagemBanner.name.split('.').pop(); const nomeArq = `banner_${Math.random()}.${ext}`; await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemBanner); const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq); await supabase.from('banners').insert([{ titulo: tituloBanner, imagem_url: data.publicUrl }]); setMensagem('Banner salvo!'); setTituloBanner(''); setImagemBanner(null); await carregarDados(); setCarregandoBanner(false) }
+  const handleSalvarCategoria = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoCategoria(true); await supabase.from('categorias').insert([{ nome: novaCategoria }]); setMensagem('Categoria criada!'); setNovaCategoria(''); await carregarDados(); setCarregandoCategoria(false) }
 
   // Vendedores
   const iniciarEdicaoVendedor = (v: any) => { setIdVendedorEdicao(v.id); setNomeVendedor(v.nome); setTelefoneVendedor(v.telefone); setComissaoVendedor(v.comissao_percentual.toString()); setSenhaVendedor(v.senha || ''); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const cancelarEdicaoVendedor = () => { setIdVendedorEdicao(null); setNomeVendedor(''); setTelefoneVendedor(''); setComissaoVendedor(''); setSenhaVendedor('') }
-  const handleSalvarVendedor = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoVendedor(true); const com = parseFloat(comissaoVendedor.replace(',', '.')) || 0; if (idVendedorEdicao) { await supabase.from('pessoas').update({ nome: nomeVendedor, telefone: telefoneVendedor, comissao_percentual: com, senha: senhaVendedor }).eq('id', idVendedorEdicao); setMensagem('Vendedor atualizado!') } else { await supabase.from('pessoas').insert([{ nome: nomeVendedor, telefone: telefoneVendedor, tipo: 'vendedor', comissao_percentual: com, senha: senhaVendedor }]); setMensagem('Vendedor cadastrado!') } cancelarEdicaoVendedor(); carregarDados(); setCarregandoVendedor(false) }
+  const handleSalvarVendedor = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoVendedor(true); const com = parseFloat(comissaoVendedor.replace(',', '.')) || 0; if (idVendedorEdicao) { await supabase.from('pessoas').update({ nome: nomeVendedor, telefone: telefoneVendedor, comissao_percentual: com, senha: senhaVendedor }).eq('id', idVendedorEdicao); setMensagem('Vendedor atualizado!') } else { await supabase.from('pessoas').insert([{ nome: nomeVendedor, telefone: telefoneVendedor, tipo: 'vendedor', comissao_percentual: com, senha: senhaVendedor }]); setMensagem('Vendedor cadastrado!') } cancelarEdicaoVendedor(); await carregarDados(); setCarregandoVendedor(false) }
 
   // Pagamentos
   const iniciarEdicaoPagamento = (pag: any) => { setIdPagamentoEdicao(pag.id); setPagTitulo(pag.titulo); setPagDescricao(pag.descricao || ''); setPagValorMinimo(pag.valor_minimo ? pag.valor_minimo.toString() : ''); setPagOrdem(pag.ordem.toString()); setPagStatusAtivo(pag.status_ativo); window.scrollTo({ top: 0, behavior: 'smooth' }) }
@@ -255,7 +270,7 @@ export default function AdminPanel() {
     const payload = { titulo: pagTitulo, descricao: pagDescricao, valor_minimo: vm, ordem: ord, status_ativo: pagStatusAtivo }
     if (idPagamentoEdicao) { await supabase.from('formas_pagamento').update(payload).eq('id', idPagamentoEdicao); setMensagem('Forma de Pagamento atualizada!') } 
     else { await supabase.from('formas_pagamento').insert([payload]); setMensagem('Forma de Pagamento cadastrada!') } 
-    cancelarEdicaoPagamento(); carregarDados(); setCarregandoPagamento(false) 
+    cancelarEdicaoPagamento(); await carregarDados(); setCarregandoPagamento(false) 
   }
 
   // Cupons
@@ -263,7 +278,7 @@ export default function AdminPanel() {
     e.preventDefault(); setCarregandoCupom(true)
     const descNum = parseFloat(cupomDesconto.replace(',', '.')) || 0
     const { error } = await supabase.from('cupons').insert([{ codigo: cupomCodigo.toUpperCase().trim(), desconto_percentual: descNum, ativo: true }])
-    if (!error) { setMensagem('Cupom criado com sucesso!'); setCupomCodigo(''); setCupomDesconto(''); carregarDados() }
+    if (!error) { setMensagem('Cupom criado com sucesso!'); setCupomCodigo(''); setCupomDesconto(''); await carregarDados() }
     else { setMensagem(`Erro ao criar cupom: ${error.message}`) }
     setCarregandoCupom(false)
   }
@@ -276,7 +291,7 @@ export default function AdminPanel() {
     const payload = { nome: cliRazao, nome_fantasia: cliFantasia, cpf_cnpj: cliCpfCnpj, telefone: cliTelefone, cidade: cliCidade, estado: cliEstado, tipo_pessoa: cliTipoPessoa, status_ativo: cliStatusAtivo, representante_id: cliRepresentante ? parseInt(cliRepresentante) : null, tipo: 'cliente', senha: cliSenha }
     if (idCliEdicao) { await supabase.from('pessoas').update(payload).eq('id', idCliEdicao); setMensagem('Cliente atualizado!') } 
     else { await supabase.from('pessoas').insert([payload]); setMensagem('Cliente cadastrado!') } 
-    limparFormCli(); setMostrarFormCli(false); carregarDados() 
+    limparFormCli(); setMostrarFormCli(false); await carregarDados() 
   }
   const limparFiltrosCli = () => { setFiltroCliNome(''); setFiltroCliCpf(''); setFiltroCliCidade('') }
   const clientesFiltrados = listaClientes.filter(c => { 
@@ -293,8 +308,8 @@ export default function AdminPanel() {
   }
 
   // Pedidos & Status Pagamento & WhatsApp
-  const atualizarStatusPedido = async (id: number, novoStatus: string) => { await supabase.from('pedidos').update({ status: novoStatus }).eq('id', id); setMensagem(`Status do pedido #${id} atualizado`); carregarDados() }
-  const atualizarStatusPagamento = async (id: number, novoStatusPag: string) => { await supabase.from('pedidos').update({ status_pagamento: novoStatusPag }).eq('id', id); setMensagem(`Pagamento do pedido #${id} atualizado`); carregarDados() }
+  const atualizarStatusPedido = async (id: number, novoStatus: string) => { await supabase.from('pedidos').update({ status: novoStatus }).eq('id', id); setMensagem(`Status do pedido #${id} atualizado`); await carregarDados() }
+  const atualizarStatusPagamento = async (id: number, novoStatusPag: string) => { await supabase.from('pedidos').update({ status_pagamento: novoStatusPag }).eq('id', id); setMensagem(`Pagamento do pedido #${id} atualizado`); await carregarDados() }
   
   const notificarClienteWp = (pedido: any) => {
     const cliente = listaClientes.find(c => c.id === pedido.cliente_id)
@@ -376,7 +391,6 @@ export default function AdminPanel() {
     )
   }
 
-  // Cálculos para o Dashboard
   const faturamentoTotal = listaPedidos.reduce((acc, p) => acc + Number(p.valor_total), 0)
   const totalPedidosCount = listaPedidos.length
   const totalClientesCount = listaClientes.length
@@ -391,10 +405,14 @@ export default function AdminPanel() {
             <h1 className="text-2xl font-bold uppercase text-gray-700">{abaAtiva === 'minhaLoja' ? 'Minha Loja' : abaAtiva}</h1>
             <p className="text-sm text-gray-500">Logado como: <strong className="text-blue-600">{usuarioLogado.nome}</strong></p>
           </div>
-          <button onClick={() => setUsuarioLogado(null)} className="text-sm bg-gray-100 hover:bg-red-100 text-gray-700 font-bold py-2 px-4 rounded-lg">Sair</button>
+          <div className="flex items-center gap-3">
+            <button onClick={carregarDados} className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-2 px-3 rounded-lg transition-colors flex items-center gap-1.5" title="Atualizar dados manualmente">
+              🔄 Atualizar
+            </button>
+            <button onClick={() => setUsuarioLogado(null)} className="text-sm bg-gray-100 hover:bg-red-100 text-gray-700 font-bold py-2 px-4 rounded-lg">Sair</button>
+          </div>
         </div>
 
-        {/* MENU DE ABAS ATUALIZADO COM DASHBOARD E CUPONS */}
         <div className="flex flex-wrap border-b border-gray-200 mb-6 text-sm">
           {usuarioLogado.tipo === 'admin' && (
             <>
@@ -730,7 +748,7 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* ABA GESTÃO DE PEDIDOS (Com Status de Pagamento Duplo e Botão de WhatsApp) */}
+        {/* ABA GESTÃO DE PEDIDOS */}
         {abaAtiva === 'pedidos' && (
           <div>
             <div className="flex gap-2 mb-6">
@@ -806,7 +824,7 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* ABA RELATÓRIOS (Detalhado por Vendedor) */}
+        {/* ABA RELATÓRIOS */}
         {abaAtiva === 'relatorio' && (
           <div>
             <div className="flex justify-between items-center mb-6">
@@ -860,7 +878,7 @@ export default function AdminPanel() {
                                 <td className="p-3 text-gray-800 font-medium">{cliente?.nome || 'Desconhecido'}</td>
                                 <td className="p-3 text-blue-600">{ped.forma_pagamento || '-'}</td>
                                 <td className="p-3 text-right font-bold text-gray-700">R$ {valPed.toFixed(2)}</td>
-                                <td className="p-3 text-right font-bold text-green-600">R$ {comPed.toFixed(2)}</td>
+                                <td className="p-3 text-right font-bold text-green-600">R$ {comInf = comPed}R$ {comPed.toFixed(2)}</td>
                               </tr>
                             )
                           })}
