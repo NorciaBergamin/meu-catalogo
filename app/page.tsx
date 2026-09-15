@@ -53,8 +53,9 @@ export default function Home() {
   const [cadEstado, setCadEstado] = useState('')
   const [cadSenha, setCadSenha] = useState('')
 
+  // Configurações da Loja (Iniciando vazias para evitar piscar texto incorreto)
   const [dadosLoja, setDadosLoja] = useState({
-    nome: 'CATÁLOGO',
+    nome: '',
     whatsapp: '',
     logo: '',
     endereco: '',
@@ -101,6 +102,8 @@ export default function Home() {
           duvidasFrequentes: configData.duvidas_frequentes || '',
           termosPoliticas: configData.termos_politicas || ''
         })
+      } else {
+        setDadosLoja(prev => ({ ...prev, nome: 'CATÁLOGO' }))
       }
       setCarregando(false)
     }
@@ -127,10 +130,6 @@ export default function Home() {
       const { data: itens, error } = await supabase.from('itens_pedido').select('*').eq('pedido_id', pedido.id)
       if (error) throw error
       const vendedor = listaVendedores.find(v => v.id === pedido.vendedor_id)
-      
-      const subtotalPedido = itens?.reduce((acc: number, item: any) => acc + (Number(item.preco_unitario) * Number(item.quantidade)), 0) || pedido.valor_total
-      const temCupom = pedido.cupom ? `<p style="margin: 5px 0; color: #166534;"><strong>Cupom Aplicado:</strong> ${pedido.cupom}</p>` : ''
-
       // @ts-ignore
       const html2pdf = (await import('html2pdf.js')).default
       const htmlPdf = `
@@ -147,7 +146,6 @@ export default function Home() {
               <p style="margin: 5px 0;"><strong>Vendedor:</strong> ${vendedor?.nome || 'Não informado'}</p>
               <p style="margin: 5px 0;"><strong>Pagamento:</strong> ${pedido.forma_pagamento || '-'}</p>
               <p style="margin: 5px 0;"><strong>Status:</strong> ${pedido.status}</p>
-              ${temCupom}
             </div>
           </div>
           <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
@@ -162,9 +160,8 @@ export default function Home() {
               `).join('')}
             </tbody>
           </table>
-          <div style="margin-top: 20px; text-align: right; font-size: 16px;">
-            ${pedido.cupom ? `<p style="margin: 3px 0; color: #666;">Subtotal: R$ ${Number(subtotalPedido).toFixed(2)}</p><p style="margin: 3px 0; color: #166534;">Desconto Cupom: Aplicado</p>` : ''}
-            <strong style="font-size: 18px;">Total do Pedido: <span style="color: #166534;">R$ ${Number(pedido.valor_total).toFixed(2)}</span></strong>
+          <div style="margin-top: 20px; text-align: right; font-size: 18px;">
+            <strong>Total do Pedido: <span style="color: #166534;">R$ ${Number(pedido.valor_total).toFixed(2)}</span></strong>
           </div>
         </div>
       `
@@ -230,7 +227,7 @@ export default function Home() {
         status: 'Pendente', 
         status_pagamento: 'Aguardando Pagamento',
         forma_pagamento: formaPagamento,
-        cupom: cupomAplicado ? `${cupomAplicado.codigo} (${cupomAplicado.desconto_percentual}% off)` : null // Salva o cupom
+        cupom: cupomAplicado ? `${cupomAplicado.codigo} (${cupomAplicado.desconto_percentual}% off)` : null
       }]).select().single()
       if (erroPed) throw erroPed
 
@@ -283,7 +280,7 @@ export default function Home() {
       <div>
         <header className="bg-white border-b border-gray-100 shadow-sm py-4 px-6 flex justify-between items-center">
           <div onClick={() => window.location.reload()} className="flex items-center gap-3 cursor-pointer" title="Atualizar página">
-            {dadosLoja.logo ? <img src={dadosLoja.logo} alt={dadosLoja.nome} className="h-10 object-contain" /> : <h1 className="text-2xl font-black text-blue-600 tracking-tighter">{dadosLoja.nome}</h1>}
+            {dadosLoja.logo ? <img src={dadosLoja.logo} alt={dadosLoja.nome} className="h-10 object-contain" /> : <h1 className="text-2xl font-black text-blue-600 tracking-tighter">{dadosLoja.nome || '...'}</h1>}
           </div>
 
           <div className="flex items-center gap-4">
@@ -304,9 +301,14 @@ export default function Home() {
           </div>
         </header>
 
+        {/* CORREÇÃO DO BANNER: Ajustado para object-contain em celulares para não cortar a imagem */}
         {banners.length > 0 && (
-          <div className="relative w-full h-[250px] md:h-[400px] bg-gray-900 overflow-hidden shadow-inner">
-            {banners.map((banner, index) => (<div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}><img src={banner.imagem_url} className="w-full h-full object-cover" /></div>))}
+          <div className="relative w-full h-[220px] sm:h-[300px] md:h-[400px] bg-gray-900 overflow-hidden shadow-inner flex items-center justify-center">
+            {banners.map((banner, index) => (
+              <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === bannerAtual ? 'opacity-100' : 'opacity-0'}`}>
+                <img src={banner.imagem_url} className="w-full h-full object-contain md:object-cover bg-black" />
+              </div>
+            ))}
           </div>
         )}
 
@@ -456,7 +458,6 @@ export default function Home() {
                     </div>
                   ))}
 
-                  {/* CAMPO DE CUPOM DE DESCONTO */}
                   <div className="pt-2 pb-2">
                     <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Cupom de Desconto</label>
                     <div className="flex gap-2">
@@ -474,7 +475,6 @@ export default function Home() {
                     {erroCupom && <p className={`text-xs mt-1.5 font-bold ${cupomAplicado ? 'text-green-600' : 'text-red-500'}`}>{erroCupom}</p>}
                   </div>
 
-                  {/* VALORES TOTAIS COM DESCONTO */}
                   <div className="pt-2 text-right border-b border-gray-100 pb-6 mb-6">
                     {cupomAplicado && (
                       <>
