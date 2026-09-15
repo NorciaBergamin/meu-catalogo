@@ -46,17 +46,28 @@ export default function AdminPanel() {
   const [logoArquivo, setLogoArquivo] = useState<File | null>(null)
   const [carregandoLogo, setCarregandoLogo] = useState(false)
 
-  // Estados Produto
+  // Estados Produto (Fotos 1 a 5)
+  const [img1, setImg1] = useState<File | null>(null)
+  const [img2, setImg2] = useState<File | null>(null)
+  const [img3, setImg3] = useState<File | null>(null)
+  const [img4, setImg4] = useState<File | null>(null)
+  const [img5, setImg5] = useState<File | null>(null)
+  const [url1Atual, setUrl1Atual] = useState('')
+  const [url2Atual, setUrl2Atual] = useState('')
+  const [url3Atual, setUrl3Atual] = useState('')
+  const [url4Atual, setUrl4Atual] = useState('')
+  const [url5Atual, setUrl5Atual] = useState('')
+
   const [mostrarFormProd, setMostrarFormProd] = useState(false)
   const [mostrarFiltrosProd, setMostrarFiltrosProd] = useState(false)
   const [filtroProdNome, setFiltroProdNome] = useState('')
   const [filtroProdCat, setFiltroProdCat] = useState('')
   const [idProdutoEdicao, setIdProdutoEdicao] = useState<number | null>(null)
-  const [nome, setNome] = useState(''); const [preco, setPreco] = useState(''); const [estoque, setEstoque] = useState('0'); const [categoria, setCategoria] = useState(''); const [descricao, setDescricao] = useState(''); const [imagemProduto, setImagemProduto] = useState<File | null>(null); const [carregandoProduto, setCarregandoProduto] = useState(false); const [gerandoIA, setGerandoIA] = useState(false)
+  const [nome, setNome] = useState(''); const [preco, setPreco] = useState(''); const [estoque, setEstoque] = useState('0'); const [categoria, setCategoria] = useState(''); const [descricao, setDescricao] = useState(''); const [carregandoProduto, setCarregandoProduto] = useState(false); const [gerandoIA, setGerandoIA] = useState(false)
   const [isDestaque, setIsDestaque] = useState(false); const [isNovo, setIsNovo] = useState(false); const [isPromocao, setIsPromocao] = useState(false)
 
   // Banners & Categorias
-  const [tituloBanner, setTituloBanner] = useState(''); const [imagemBanner, setImagemBanner] = useState<File | null>(null); const [carregandoBanner, setCarregandoBanner] = useState(false)
+  const [tituloBanner, setTituloBanner] = useState(''); const [imagemBanner, setImagemBanner] = useState<File | null>(null); const [carregandoBanner, setCarregandoBanner] = useState(false); const [tipoBanner, setTipoBanner] = useState('web')
   const [novaCategoria, setNovaCategoria] = useState(''); const [carregandoCategoria, setCarregandoCategoria] = useState(false)
 
   // Vendedores
@@ -148,38 +159,60 @@ export default function AdminPanel() {
     if (!error) { setMensagem('Item excluído!'); await carregarDados() }
   }
 
-  const limparFormProd = () => { setIdProdutoEdicao(null); setNome(''); setPreco(''); setEstoque('0'); setDescricao(''); setImagemProduto(null); setIsDestaque(false); setIsNovo(false); setIsPromocao(false) }
+  const limparFormProd = () => { 
+    setIdProdutoEdicao(null); setNome(''); setPreco(''); setEstoque('0'); setDescricao(''); 
+    setImg1(null); setImg2(null); setImg3(null); setImg4(null); setImg5(null);
+    setUrl1Atual(''); setUrl2Atual(''); setUrl3Atual(''); setUrl4Atual(''); setUrl5Atual('');
+    setIsDestaque(false); setIsNovo(false); setIsPromocao(false) 
+  }
+
   const iniciarEdicaoProduto = (p: any) => { 
     setIdProdutoEdicao(p.id); setNome(p.nome); setPreco(p.preco.toString()); setEstoque((p.estoque || 0).toString())
     const catValida = categoriasCadastradas.find(c => c.nome === p.categoria)
     setCategoria(catValida ? p.categoria : (categoriasCadastradas.length > 0 ? categoriasCadastradas[0].nome : ''))
-    setDescricao(p.descricao || ''); setImagemProduto(null); setIsDestaque(p.is_destaque || false); setIsNovo(p.is_novo || false); setIsPromocao(p.is_promocao || false)
+    setDescricao(p.descricao || ''); 
+    setImg1(null); setImg2(null); setImg3(null); setImg4(null); setImg5(null);
+    setUrl1Atual(p.imagem_url || ''); setUrl2Atual(p.imagem_url_2 || ''); setUrl3Atual(p.imagem_url_3 || ''); setUrl4Atual(p.imagem_url_4 || ''); setUrl5Atual(p.imagem_url_5 || '');
+    setIsDestaque(p.is_destaque || false); setIsNovo(p.is_novo || false); setIsPromocao(p.is_promocao || false)
     setMostrarFormProd(true); setMostrarFiltrosProd(false); window.scrollTo({ top: 0, behavior: 'smooth' }) 
   }
+
   const handleSalvarProduto = async (e: React.FormEvent) => {
     e.preventDefault(); setCarregandoProduto(true)
     const precoNumerico = parseFloat(preco.replace(',', '.'))
     const estoqueNumerico = parseInt(estoque) || 0
-    let imagemUrl = ''
-    if (imagemProduto) { 
-      const ext = imagemProduto.name.split('.').pop()
-      const nomeArq = `produto_${Math.random()}.${ext}`
-      await supabase.storage.from('produtos-imagens').upload(nomeArq, imagemProduto)
+    
+    async function subirFoto(file: File | null, urlAtual: string) {
+      if (!file) return urlAtual
+      const ext = file.name.split('.').pop()
+      const nomeArq = `prod_${Math.random()}.${ext}`
+      await supabase.storage.from('produtos-imagens').upload(nomeArq, file)
       const { data } = supabase.storage.from('produtos-imagens').getPublicUrl(nomeArq)
-      imagemUrl = data.publicUrl 
+      return data.publicUrl
     }
-    const payload: any = { nome, preco: precoNumerico, estoque: estoqueNumerico, categoria, descricao, is_destaque: isDestaque, is_novo: isNovo, is_promocao: isPromocao }
-    if (imagemUrl) payload.imagem_url = imagemUrl
+
+    const u1 = await subirFoto(img1, url1Atual)
+    const u2 = await subirFoto(img2, url2Atual)
+    const u3 = await subirFoto(img3, url3Atual)
+    const u4 = await subirFoto(img4, url4Atual)
+    const u5 = await subirFoto(img5, url5Atual)
+
+    const payload: any = { 
+      nome, preco: precoNumerico, estoque: estoqueNumerico, categoria, descricao, 
+      is_destaque: isDestaque, is_novo: isNovo, is_promocao: isPromocao,
+      imagem_url: u1, imagem_url_2: u2, imagem_url_3: u3, imagem_url_4: u4, imagem_url_5: u5
+    }
 
     if (idProdutoEdicao) {
       await supabase.from('produtos').update(payload).eq('id', idProdutoEdicao)
-      setMensagem('Produto atualizado!')
+      setMensagem('Produto atualizado com sucesso!')
     } else {
       await supabase.from('produtos').insert([payload])
-      setMensagem('Produto salvo!')
+      setMensagem('Produto cadastrado com sucesso!')
     }
     limparFormProd(); setMostrarFormProd(false); await carregarDados(); setCarregandoProduto(false)
   }
+
   const produtosFiltrados = listaProdutos.filter(p => {
     const matchNome = filtroProdNome ? p.nome.toLowerCase().includes(filtroProdNome.toLowerCase()) : true
     const matchCat = filtroProdCat ? p.categoria === filtroProdCat : true
@@ -249,8 +282,6 @@ export default function AdminPanel() {
     setGerandoIA(false)
   }
 
- const [tipoBanner, setTipoBanner] = useState('web')
-
   const handleSalvarBanner = async (e: React.FormEvent) => { 
     e.preventDefault()
     if (!imagemBanner) return 
@@ -267,6 +298,7 @@ export default function AdminPanel() {
     await carregarDados()
     setCarregandoBanner(false) 
   }
+
   const handleSalvarCategoria = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoCategoria(true); await supabase.from('categorias').insert([{ nome: novaCategoria }]); setMensagem('Categoria criada!'); setNovaCategoria(''); await carregarDados(); setCarregandoCategoria(false) }
 
   const iniciarEdicaoVendedor = (v: any) => { setIdVendedorEdicao(v.id); setNomeVendedor(v.nome); setTelefoneVendedor(v.telefone); setComissaoVendedor(v.comissao_percentual.toString()); setSenhaVendedor(v.senha || ''); window.scrollTo({ top: 0, behavior: 'smooth' }) }
@@ -537,8 +569,29 @@ export default function AdminPanel() {
                 </div>
                 <div className="flex justify-between items-center"><label className="block text-sm font-medium text-gray-700">Descrição</label><button type="button" onClick={gerarDescricaoIA} disabled={gerandoIA || !nome} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 font-bold rounded-lg border border-purple-100">✨ Gerar IA</button></div>
                 <textarea rows={3} value={descricao} onChange={(e) => setDescricao(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none" />
-                <div><label className="block text-sm font-medium mb-1 text-gray-700">Foto</label><input type="file" accept="image/*" onChange={(e) => setImagemProduto(e.target.files?.[0] || null)} className="w-full p-2.5 border border-gray-200 rounded-xl bg-white text-sm" /></div>
                 
+                {/* 5 FOTOS POR PRODUTO */}
+                <div className="border border-gray-100 p-4 rounded-2xl bg-gray-50/50 space-y-3">
+                  <label className="block text-sm font-bold text-gray-800">📸 Fotos do Produto (Até 5 posições)</label>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                    {[
+                      { label: 'Foto Principal (1)', file: img1, setFile: setImg1, url: url1Atual },
+                      { label: 'Foto 2', file: img2, setFile: setImg2, url: url2Atual },
+                      { label: 'Foto 3', file: img3, setFile: setImg3, url: url3Atual },
+                      { label: 'Foto 4', file: img4, setFile: setImg4, url: url4Atual },
+                      { label: 'Foto 5', file: img5, setFile: setImg5, url: url5Atual }
+                    ].map((item, idx) => (
+                      <div key={idx} className="bg-white p-3 rounded-xl border border-gray-200 text-center flex flex-col justify-between">
+                        <span className="text-xs font-bold text-gray-600 mb-2">{item.label}</span>
+                        {item.url && !item.file && (
+                          <div className="mb-2"><img src={item.url} className="w-16 h-16 object-cover mx-auto rounded-lg border" /></div>
+                        )}
+                        <input type="file" accept="image/*" onChange={(e) => item.setFile(e.target.files?.[0] || null)} className="w-full text-[11px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap gap-6 p-4 border border-yellow-100 bg-yellow-50/50 rounded-xl">
                   <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800"><input type="checkbox" checked={isDestaque} onChange={e=>setIsDestaque(e.target.checked)} className="w-5 h-5 accent-blue-600 rounded" /> ⭐ Destaque</label>
                   <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800"><input type="checkbox" checked={isNovo} onChange={e=>setIsNovo(e.target.checked)} className="w-5 h-5 accent-green-600 rounded" /> ✨ Novidade</label>
@@ -547,7 +600,7 @@ export default function AdminPanel() {
 
                 <div className="flex gap-2 justify-end pt-2">
                   <button type="button" onClick={() => { setMostrarFormProd(false); limparFormProd() }} className="bg-gray-100 hover:bg-gray-200 px-5 py-2.5 rounded-xl font-bold text-gray-700 transition-colors">Cancelar</button>
-                  <button type="submit" disabled={carregandoProduto} className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm">{idProdutoEdicao ? 'Salvar Alterações' : 'Salvar Produto'}</button>
+                  <button type="submit" disabled={carregandoProduto} className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm">{carregandoProduto ? 'Salvando...' : (idProdutoEdicao ? 'Salvar Alterações' : 'Salvar Produto')}</button>
                 </div>
               </form>
             )}
@@ -579,7 +632,6 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* ABA BANNERS */}
         {/* ABA BANNERS */}
         {abaAtiva === 'banner' && usuarioLogado.tipo === 'admin' && (
           <div className="max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm">

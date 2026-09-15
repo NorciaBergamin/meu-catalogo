@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/utils/supabase'
+import { useRouter } from 'next/navigation'
 
 export default function Home() {
+  const router = useRouter()
   const [produtos, setProdutos] = useState<any[]>([])
   const [banners, setBanners] = useState<any[]>([])
   const [listaCategorias, setListaCategorias] = useState<string[]>([]) 
@@ -13,9 +15,6 @@ export default function Home() {
   
   const [busca, setBusca] = useState('')
   const [ordenacao, setOrdenacao] = useState('relevancia')
-
-  const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null)
-  const [quantidadeModal, setQuantidadeModal] = useState(1) 
 
   const [carrinho, setCarrinho] = useState<any[]>([])
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false)
@@ -53,7 +52,7 @@ export default function Home() {
   const [cadEstado, setCadEstado] = useState('')
   const [cadSenha, setCadSenha] = useState('')
 
-  // Configurações da Loja (Iniciando vazias para evitar piscar texto incorreto)
+  // Configurações da Loja
   const [dadosLoja, setDadosLoja] = useState({
     nome: '',
     whatsapp: '',
@@ -168,20 +167,6 @@ export default function Home() {
       const opcoesPdf: any = { margin: 10, filename: `reimpressao_pedido_${pedido.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
       await html2pdf().set(opcoesPdf).from(htmlPdf).save()
     } catch (error: any) { alert(`Erro ao gerar PDF: ${error.message}`) }
-  }
-
-  const adicionarAoCarrinho = (produto: any, quantidadeDesejada: number) => { 
-    if ((produto.estoque || 0) < quantidadeDesejada) return alert(`Desculpe, temos apenas ${produto.estoque || 0} unidades em estoque.`)
-    setCarrinho(prev => { 
-      const existe = prev.find(item => item.produto.id === produto.id)
-      if (existe) {
-        const novaQtd = existe.quantidade + quantidadeDesejada
-        if ((produto.estoque || 0) < novaQtd) { alert(`Estoque insuficiente. Máximo disponível: ${produto.estoque}`); return prev }
-        return prev.map(item => item.produto.id === produto.id ? { ...item, quantidade: novaQtd } : item)
-      } 
-      return [...prev, { produto, quantidade: quantidadeDesejada }] 
-    })
-    setProdutoSelecionado(null); setIsCarrinhoAberto(true) 
   }
 
   const alterarQuantidadeItem = (produtoId: number, delta: number) => { 
@@ -301,7 +286,7 @@ export default function Home() {
           </div>
         </header>
 
-    {/* BANNERS RESPONSIVOS COM PROPORÇÃO IDEAL (SEM CORTES E TAMANHO PERFEITO) */}
+        {/* BANNERS RESPONSIVOS */}
         {banners.length > 0 && (() => {
           const bannersWeb = banners.filter(b => b.tipo === 'web' || !b.tipo)
           const bannersApp = banners.filter(b => b.tipo === 'app')
@@ -311,7 +296,6 @@ export default function Home() {
 
           return (
             <>
-              {/* Versão Web / Computador (Proporção larga ideal para PC) */}
               <div className="hidden md:block relative w-full aspect-[3/1] max-h-[480px] bg-white overflow-hidden shadow-sm">
                 {listaWebFinal.map((banner, index) => (
                   <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === (bannerAtual % listaWebFinal.length) ? 'opacity-100' : 'opacity-0'}`}>
@@ -320,7 +304,6 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* Versão App / Celular (Proporção ajustada para Smartphone) */}
               <div className="block md:hidden relative w-full aspect-[4/3] max-h-[380px] bg-white overflow-hidden shadow-sm">
                 {listaAppFinal.map((banner, index) => (
                   <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${index === (bannerAtual % listaAppFinal.length) ? 'opacity-100' : 'opacity-0'}`}>
@@ -385,7 +368,7 @@ export default function Home() {
             {carregando ? (<p className="text-center text-gray-500">Carregando...</p>) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {produtosFiltrados.map((produto) => (
-                  <div key={produto.id} onClick={() => { setProdutoSelecionado(produto); setQuantidadeModal(1); }} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative overflow-hidden group">
+                  <div key={produto.id} onClick={() => router.push(`/produto/${produto.id}`)} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative overflow-hidden group">
                     
                     <div className="absolute top-6 left-6 flex flex-col gap-1.5 z-10">
                       {produto.is_destaque && <span className="bg-blue-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Destaque</span>}
@@ -404,48 +387,17 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
-                {produtosFiltrados.length === 0 && (
-                  <div className="col-span-full text-center py-12">
-                    <p className="text-xl font-medium text-gray-700">Nenhum produto encontrado.</p>
-                    <p className="text-gray-400 mt-2 text-sm">Tente buscar por outro nome ou remova os filtros.</p>
-                  </div>
-                )}
+              </div>
+            )}
+            {produtosFiltrados.length === 0 && !carregando && (
+              <div className="col-span-full text-center py-12">
+                <p className="text-xl font-medium text-gray-700">Nenhum produto encontrado.</p>
+                <p className="text-gray-400 mt-2 text-sm">Tente buscar por outro nome ou remova os filtros.</p>
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {/* MODAL DO PRODUTO */}
-      {produtoSelecionado && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl relative flex flex-col md:flex-row max-h-[90vh]">
-            <button onClick={() => setProdutoSelecionado(null)} className="absolute top-4 right-4 bg-gray-100 hover:bg-red-500 hover:text-white rounded-full w-8 h-8 font-bold z-10 transition-colors">✕</button>
-            <div className="w-full md:w-1/2 h-64 md:h-auto bg-gray-100 relative">
-              {produtoSelecionado.imagem_url ? <img src={produtoSelecionado.imagem_url} className="w-full h-full object-cover absolute inset-0" /> : <span className="flex h-full items-center justify-center text-gray-400">Sem Imagem</span>}
-            </div>
-            <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col overflow-y-auto">
-              <div className="flex-1">
-                {produtoSelecionado.categoria && <span className="text-xs font-bold text-blue-600 mb-2 block uppercase tracking-wider">{produtoSelecionado.categoria}</span>}
-                <h2 className="text-2xl font-bold mb-4 text-gray-900">{produtoSelecionado.nome}</h2>
-                <div className="text-gray-600 mb-6 text-sm leading-relaxed">{produtoSelecionado.descricao ? <p>{produtoSelecionado.descricao}</p> : <p className="italic text-gray-400">Sem descrição.</p>}</div>
-              </div>
-              <div className="mt-6 pt-6 border-t border-gray-100">
-                <p className="text-green-600 font-extrabold text-3xl mb-4">R$ {produtoSelecionado.preco.toFixed(2)}</p>
-                <div className="flex items-center gap-4 mb-4">
-                  <span className="text-gray-700 font-medium text-sm">Quantidade:</span>
-                  <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
-                    <button onClick={() => setQuantidadeModal(prev => Math.max(1, prev - 1))} className="px-4 py-2 bg-gray-50 font-bold hover:bg-gray-100 transition-colors">-</button>
-                    <span className="px-4 py-2 font-semibold bg-white w-12 text-center">{quantidadeModal}</span>
-                    <button onClick={() => setQuantidadeModal(prev => prev + 1)} className="px-4 py-2 bg-gray-50 font-bold hover:bg-gray-100 transition-colors">+</button>
-                  </div>
-                </div>
-                <button onClick={() => adicionarAoCarrinho(produtoSelecionado, quantidadeModal)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition-all">Adicionar ao Carrinho 🛒</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* GAVETA DO CARRINHO */}
       {isCarrinhoAberto && (
