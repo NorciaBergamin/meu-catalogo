@@ -31,7 +31,6 @@ export default function Home() {
   const [listaPagamentos, setListaPagamentos] = useState<any[]>([])
   const [finalizando, setFinalizando] = useState(false)
 
-  const [vendedorSelecionado, setVendedorSelecionado] = useState('')
   const [formaPagamento, setFormaPagamento] = useState('')
 
   const [clienteLogado, setClienteLogado] = useState<any>(null)
@@ -129,6 +128,7 @@ export default function Home() {
       window.history.replaceState({}, '', '/')
     }
   }, [])
+
   // Captura e salva o vendedor automaticamente caso venha por link de indicação
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -245,19 +245,24 @@ export default function Home() {
         await supabase.from('produtos').update({ estoque: novoEstoque }).eq('id', item.produto.id)
       }
 
-      const vendedorObj = listaVendedores.find(v => v.id === vendedorIdFinal)
-      const itensTexto = carrinho.map(i => `• ${i.quantidade}x ${i.produto.nome} (R$ ${(i.produto.preco * i.quantidade).toFixed(2)})`).join('%0A')
-      const cupomTexto = cupomAplicado ? `%0A*Cupom Aplicado:* ${cupomAplicado.codigo} (${cupomAplicado.desconto_percentual}% off)` : ''
-      const mensagemWp = `*NOVO PEDIDO #${pedido.id}*%0A%0A*Cliente:* ${clienteLogado.nome}%0A*Vendedor:* ${vendedorObj?.nome || '-'}%0A*Pagamento:* ${formaPagamento}${cupomTexto}%0A%0A*Itens:*%0A${itensTexto}%0A%0A*Total:* R$ ${valorFinalComDesconto.toFixed(2)}`
-
-      toast.success('Pedido finalizado com sucesso e estoque atualizado!')
+      toast.success(`Pedido #${pedido.id} gerado com sucesso e estoque atualizado!`)
       setCarrinho([]); setIsCarrinhoAberto(false); setCupomAplicado(null); setCodigoCupom('')
-
-      if (dadosLoja.whatsapp) {
-        window.open(`https://wa.me/${dadosLoja.whatsapp}?text=${mensagemWp}`, '_blank')
-      }
     } catch (error: any) { toast.error(`Erro ao finalizar: ${error.message}`) }
     setFinalizando(false)
+  }
+
+  const handleEnviarWhatsAppApenas = () => {
+    if (carrinho.length === 0) return toast.error('Seu carrinho está vazio.')
+    if (!dadosLoja.whatsapp) return toast.error('WhatsApp da loja não configurado.')
+
+    const vendedorSalvo = localStorage.getItem('erp_vendedor_indicacao')
+    const vendedorObj = listaVendedores.find(v => v.id === Number(vendedorSalvo))
+    
+    const itensTexto = carrinho.map(i => `• ${i.quantidade}x ${i.produto.nome} (R$ ${(i.produto.preco * i.quantidade).toFixed(2)})`).join('%0A')
+    const cupomTexto = cupomAplicado ? `%0A*Cupom Aplicado:* ${cupomAplicado.codigo} (${cupomAplicado.desconto_percentual}% off)` : ''
+    const mensagemWp = `*CONSULTA DE PEDIDO*%0A%0A*Cliente:* ${clienteLogado?.nome || 'Cliente'}%0A*Vendedor:* ${vendedorObj?.nome || '-'}%0A*Pagamento:* ${formaPagamento}${cupomTexto}%0A%0A*Itens:*%0A${itensTexto}%0A%0A*Total:* R$ ${valorFinalComDesconto.toFixed(2)}`
+
+    window.open(`https://wa.me/${dadosLoja.whatsapp}?text=${mensagemWp}`, '_blank')
   }
 
   const produtosFiltrados = produtos.filter(p => {
@@ -400,44 +405,42 @@ export default function Home() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {produtosFiltrados.map((produto) => (
-  <div key={produto.id} onClick={() => router.push(`/produto/${produto.id}`)} className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative overflow-hidden group">
-    
-    {/* Tags de Destaque / Promoção */}
-    <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
-      {produto.is_destaque && <span className="bg-blue-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Destaque</span>}
-      {produto.is_novo && <span className="bg-green-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Novo</span>}
-      {produto.is_promocao && <span className="bg-red-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Promoção</span>}
-    </div>
+                {produtosFiltrados.map((produto) => {
+                  const storedVendedor = typeof window !== 'undefined' ? localStorage.getItem('erp_vendedor_indicacao') : null
+                  const prodLink = storedVendedor ? `/produto/${produto.id}?vendedor=${storedVendedor}` : `/produto/${produto.id}`
+                  return (
+                    <div key={produto.id} onClick={() => router.push(prodLink)} className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative overflow-hidden group">
+                      
+                      <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
+                        {produto.is_destaque && <span className="bg-blue-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Destaque</span>}
+                        {produto.is_novo && <span className="bg-green-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Novo</span>}
+                        {produto.is_promocao && <span className="bg-red-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Promoção</span>}
+                      </div>
 
-    <div>
-      {/* Imagem preenchendo toda a largura superior */}
-      <div className="h-56 w-full bg-gray-50 relative overflow-hidden">
-        {produto.imagem_url ? (
-          <Image 
-            src={produto.imagem_url} 
-            alt={produto.nome}
-            fill
-            sizes="(max-width: 768px) 100vw, 300px"
-            className="object-cover group-hover:scale-105 transition-transform duration-500" 
-          />
-        ) : (
-          <span className="text-gray-400 text-sm flex items-center justify-center h-full">Sem Imagem</span>
-        )}
-      </div>
-      
-      {/* Título com espaçamento interno adequado */}
-      <div className="p-4 pb-2">
-        <h2 className="text-base font-semibold text-gray-800 leading-snug line-clamp-2">{produto.nome}</h2>
-      </div>
-    </div>
-
-    {/* Preço */}
-    <div className="px-4 pb-4 pt-0">
-      <p className="text-green-600 font-extrabold text-xl">R$ {produto.preco.toFixed(2)}</p>
-    </div>
-  </div>
-))}
+                      <div>
+                        <div className="h-56 w-full bg-gray-50 relative overflow-hidden">
+                          {produto.imagem_url ? (
+                            <Image 
+                              src={produto.imagem_url} 
+                              alt={produto.nome}
+                              fill
+                              sizes="(max-width: 768px) 100vw, 300px"
+                              className="object-cover group-hover:scale-105 transition-transform duration-500" 
+                            />
+                          ) : (
+                            <span className="text-gray-400 text-sm flex items-center justify-center h-full">Sem Imagem</span>
+                          )}
+                        </div>
+                        <div className="p-4 pb-2">
+                          <h2 className="text-base font-semibold text-gray-800 leading-snug line-clamp-2">{produto.nome}</h2>
+                        </div>
+                      </div>
+                      <div className="px-4 pb-4 pt-0">
+                        <p className="text-green-600 font-extrabold text-xl">R$ {produto.preco.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
 
@@ -532,24 +535,29 @@ export default function Home() {
                       </div>
                       
                       <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-700">Vendedor Responsável</label>
-                      {(() => {
-                        const vendedorSalvo = typeof window !== 'undefined' ? localStorage.getItem('erp_vendedor_indicacao') : null
-                        const vendedorObj = listaVendedores.find(v => v.id === Number(vendedorSalvo))
-                        return (
-                          <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 text-sm text-blue-900">
-                            <p>Atendido por: <strong className="text-blue-950">{vendedorObj?.nome || 'Vendedor Oficial da Loja'}</strong></p>
-                          </div>
-                        )
-                      })()}
-                    </div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700">Vendedor Responsável</label>
+                        {(() => {
+                          const vendedorSalvo = typeof window !== 'undefined' ? localStorage.getItem('erp_vendedor_indicacao') : null
+                          const vendedorObj = listaVendedores.find(v => v.id === Number(vendedorSalvo))
+                          return (
+                            <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 text-sm text-blue-900">
+                              <p>Atendido por: <strong className="text-blue-950">{vendedorObj?.nome || 'Vendedor Oficial da Loja'}</strong></p>
+                            </div>
+                          )
+                        })()}
+                      </div>
 
                       <div className="flex flex-col gap-2 pt-2">
-                        <button type="button" onClick={() => setIsCarrinhoAberto(false)} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-xl transition-colors">
+                        <button type="button" onClick={() => setIsCarrinhoAberto(false)} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-xl transition-colors text-sm">
                           Continuar Comprando
                         </button>
-                        <button type="submit" disabled={finalizando} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl disabled:opacity-50 transition-all shadow-md">
-                          {finalizando ? 'Processando...' : 'Gerar Pedido e Enviar WhatsApp'}
+                        
+                        <button type="submit" disabled={finalizando} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl disabled:opacity-50 transition-all shadow-md text-sm">
+                          {finalizando ? 'Processando...' : 'Finalizar Pedido'}
+                        </button>
+
+                        <button type="button" onClick={handleEnviarWhatsAppApenas} disabled={finalizando} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl disabled:opacity-50 transition-all shadow-md text-sm flex items-center justify-center gap-2">
+                          💬 Enviar Pedido WhatsApp
                         </button>
                       </div>
                     </form>
