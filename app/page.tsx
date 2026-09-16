@@ -74,7 +74,7 @@ export default function Home() {
     termosPoliticas: ''
   })
 
-  const filtrosCampanha = ['⭐ Destaques', '🔥 Promoções', '✨ Novidades']
+  const filtrosCampanha = ['⭐ Destaques', '🔥 Promoções', '✨ Novidades', '❤️ Favoritos']
 
   useEffect(() => {
     async function carregarDados() {
@@ -310,6 +310,7 @@ export default function Home() {
     else if (categoriaAtiva === '⭐ Destaques') passaCategoria = p.is_destaque
     else if (categoriaAtiva === '🔥 Promoções') passaCategoria = p.is_promocao
     else if (categoriaAtiva === '✨ Novidades') passaCategoria = p.is_novo
+    else if (categoriaAtiva === '❤️ Favoritos') passaCategoria = favoritos.includes(p.id) // <--- ADICIONADO AQUI
     else passaCategoria = p.categoria?.trim() === categoriaAtiva?.trim()
 
     let passaBusca = true
@@ -421,6 +422,7 @@ export default function Home() {
                 if (cat === '⭐ Destaques') corAtivo = 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-100'
                 if (cat === '🔥 Promoções') corAtivo = 'bg-red-600 text-white border-red-600 shadow-md shadow-red-100'
                 if (cat === '✨ Novidades') corAtivo = 'bg-green-600 text-white border-green-600 shadow-md shadow-green-100'
+                if (cat === '❤️ Favoritos') corAtivo = 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-100' // <--- COR ROSA/VERMELHA PARA FAVORITOS
 
                 return (
                   <button key={cat} onClick={() => {setCategoriaAtiva(cat); setBusca('')}} className={`px-5 py-2.5 rounded-full font-bold transition-all border text-sm ${categoriaAtiva === cat ? corAtivo : cor}`}>
