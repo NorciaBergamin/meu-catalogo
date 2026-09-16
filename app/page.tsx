@@ -25,6 +25,9 @@ export default function Home() {
   // Estado para armazenar o pedido recém-gerado e exibir a tela de sucesso
   const [pedidoGerado, setPedidoGerado] = useState<any>(null)
 
+  // Estados de Favoritos
+  const [favoritos, setFavoritos] = useState<number[]>([])
+
   // Estados de Cupom de Desconto
   const [codigoCupom, setCodigoCupom] = useState('')
   const [cupomAplicado, setCupomAplicado] = useState<any>(null)
@@ -117,6 +120,10 @@ export default function Home() {
     
     const carrinhoSalvo = localStorage.getItem('erp_carrinho_sessao')
     if (carrinhoSalvo) { setCarrinho(JSON.parse(carrinhoSalvo)) }
+    
+    const favsSalvos = localStorage.getItem('erp_favoritos')
+    if (favsSalvos) { setFavoritos(JSON.parse(favsSalvos)) }
+
     setCarrinhoCarregado(true) 
   }, [])
 
@@ -140,6 +147,20 @@ export default function Home() {
       localStorage.setItem('erp_vendedor_indicacao', vendedorParam)
     }
   }, [])
+
+  const toggleFavorito = (e: React.MouseEvent, produtoId: number) => {
+    e.stopPropagation() 
+    let novosFavs
+    if (favoritos.includes(produtoId)) {
+      novosFavs = favoritos.filter(id => id !== produtoId)
+      toast.info('Produto removido dos favoritos')
+    } else {
+      novosFavs = [...favoritos, produtoId]
+      toast.success('Produto salvo nos favoritos!')
+    }
+    setFavoritos(novosFavs)
+    localStorage.setItem('erp_favoritos', JSON.stringify(novosFavs))
+  }
 
   const efetuarLogin = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const { data } = await supabase.from('pessoas').select('*').eq('tipo', 'cliente').eq('senha', authSenha).or(`telefone.eq.${authLogin},cpf_cnpj.eq.${authLogin}`).single(); if (data) { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false) } else { toast.error('Usuário ou senha incorretos.') }; setCarregandoAuth(false) }
   const efetuarCadastro = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const payload = { tipo: 'cliente', tipo_pessoa: cadTipoPessoa, nome: cadNome, cpf_cnpj: cadCpfCnpj, telefone: cadTelefone, cidade: cadCidade, estado: cadEstado, senha: cadSenha, status_ativo: true }; const { data, error } = await supabase.from('pessoas').insert([payload]).select().single(); if (error) { toast.error(`Erro: ${error.message}`) } else { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false); toast.success('Conta criada com sucesso!') }; setCarregandoAuth(false) }
@@ -248,7 +269,6 @@ export default function Home() {
         await supabase.from('produtos').update({ estoque: novoEstoque }).eq('id', item.produto.id)
       }
 
-      // Salva os dados do pedido gerado para exibir a tela de sucesso
       setPedidoGerado({
         id: pedido.id,
         valor_total: valorFinalComDesconto,
@@ -257,7 +277,7 @@ export default function Home() {
       })
 
       toast.success(`Pedido #${pedido.id} gerado com sucesso!`)
-      setCarrinho([]) // Esvazia o carrinho local
+      setCarrinho([])
       setCupomAplicado(null)
       setCodigoCupom('')
     } catch (error: any) { 
@@ -430,6 +450,16 @@ export default function Home() {
                   return (
                     <div key={produto.id} onClick={() => router.push(prodLink)} className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative overflow-hidden group">
                       
+                      {/* BOTÃO DE FAVORITOS (CORAÇÃO) */}
+                      <div 
+                        onClick={(e) => toggleFavorito(e, produto.id)} 
+                        className="absolute top-4 right-4 z-10 bg-white/90 hover:bg-white p-2 rounded-full shadow-md backdrop-blur-sm cursor-pointer transition-transform hover:scale-110"
+                        title={favoritos.includes(produto.id) ? 'Remover dos favoritos' : 'Salvar nos favoritos'}
+                      >
+                        {favoritos.includes(produto.id) ? '❤️' : '🤍'}
+                      </div>
+
+                      {/* Tags de Destaque / Promoção */}
                       <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
                         {produto.is_destaque && <span className="bg-blue-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Destaque</span>}
                         {produto.is_novo && <span className="bg-green-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Novo</span>}

@@ -1,11 +1,20 @@
-import type { Metadata } from "next"
-import "./globals.css"
-import BackButtonHandler from "./components/BackButtonHandler"
-import { Toaster } from "sonner"
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+import { Toaster } from 'sonner'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: "PROACADE - Catálogo",
-  description: "Catálogo de Produtos e ERP",
+  title: 'PROACADE - Catálogo Oficial',
+  description: 'Catálogo e Sistema de Pedidos',
+  manifest: '/manifest.json',
+  themeColor: '#0d47a1',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'PROACADE',
+  },
 }
 
 export default function RootLayout({
@@ -15,10 +24,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className="min-h-full flex flex-col antialiased bg-gray-50 text-gray-900">
-        <BackButtonHandler />
-        <Toaster richColors position="top-right" />
+      <body className={inter.className}>
         {children}
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   )
