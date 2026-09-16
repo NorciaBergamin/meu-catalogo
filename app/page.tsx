@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/utils/supabase'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import Image from 'next/image'
 
 export default function Home() {
   const router = useRouter()
@@ -118,17 +120,18 @@ export default function Home() {
 
   useEffect(() => { if (carrinhoCarregado) { localStorage.setItem('erp_carrinho_sessao', JSON.stringify(carrinho)) } }, [carrinho, carrinhoCarregado])
   useEffect(() => { if (banners.length === 0) return; const intervalo = setInterval(() => setBannerAtual((prev) => (prev === banners.length - 1 ? 0 : prev + 1)), 5000); return () => clearInterval(intervalo) }, [banners.length])
+  
   // Detecta se veio da página de produto para abrir o carrinho automaticamente
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('abrirCarrinho') === 'true') {
       setIsCarrinhoAberto(true)
-      // Limpa a URL para não reabrir se o usuário atualizar a página
       window.history.replaceState({}, '', '/')
     }
   }, [])
-  const efetuarLogin = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const { data } = await supabase.from('pessoas').select('*').eq('tipo', 'cliente').eq('senha', authSenha).or(`telefone.eq.${authLogin},cpf_cnpj.eq.${authLogin}`).single(); if (data) { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false) } else { alert('Usuário ou senha incorretos.') }; setCarregandoAuth(false) }
-  const efetuarCadastro = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const payload = { tipo: 'cliente', tipo_pessoa: cadTipoPessoa, nome: cadNome, cpf_cnpj: cadCpfCnpj, telefone: cadTelefone, cidade: cadCidade, estado: cadEstado, senha: cadSenha, status_ativo: true }; const { data, error } = await supabase.from('pessoas').insert([payload]).select().single(); if (error) { alert(`Erro: ${error.message}`) } else { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false); alert('Conta criada com sucesso!') }; setCarregandoAuth(false) }
+
+  const efetuarLogin = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const { data } = await supabase.from('pessoas').select('*').eq('tipo', 'cliente').eq('senha', authSenha).or(`telefone.eq.${authLogin},cpf_cnpj.eq.${authLogin}`).single(); if (data) { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false) } else { toast.error('Usuário ou senha incorretos.') }; setCarregandoAuth(false) }
+  const efetuarCadastro = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const payload = { tipo: 'cliente', tipo_pessoa: cadTipoPessoa, nome: cadNome, cpf_cnpj: cadCpfCnpj, telefone: cadTelefone, cidade: cadCidade, estado: cadEstado, senha: cadSenha, status_ativo: true }; const { data, error } = await supabase.from('pessoas').insert([payload]).select().single(); if (error) { toast.error(`Erro: ${error.message}`) } else { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false); toast.success('Conta criada com sucesso!') }; setCarregandoAuth(false) }
   const fazerLogout = () => { setClienteLogado(null); localStorage.removeItem('erp_cliente_sessao') }
   const abrirMeusPedidos = async () => { setModalMeusPedidosAberto(true); setCarregandoPedidos(true); const { data } = await supabase.from('pedidos').select('*').eq('cliente_id', clienteLogado.id).order('data_pedido', { ascending: false }); if (data) setMeusPedidos(data); setCarregandoPedidos(false) }
   
@@ -174,14 +177,14 @@ export default function Home() {
       `
       const opcoesPdf: any = { margin: 10, filename: `reimpressao_pedido_${pedido.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }
       await html2pdf().set(opcoesPdf).from(htmlPdf).save()
-    } catch (error: any) { alert(`Erro ao gerar PDF: ${error.message}`) }
+    } catch (error: any) { toast.error(`Erro ao gerar PDF: ${error.message}`) }
   }
 
   const alterarQuantidadeItem = (produtoId: number, delta: number) => { 
     setCarrinho(prev => prev.map(item => { 
       if (item.produto.id === produtoId) { 
         const novaQtd = item.quantidade + delta; 
-        if (novaQtd > (item.produto.estoque || 0)) { alert('Quantidade excede o estoque disponível.'); return item }
+        if (novaQtd > (item.produto.estoque || 0)) { toast.error('Quantidade excede o estoque disponível.'); return item }
         return novaQtd > 0 ? { ...item, quantidade: novaQtd } : item 
       } 
       return item 
@@ -208,8 +211,8 @@ export default function Home() {
 
   const handleFinalizarCompra = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (carrinho.length === 0) return alert('Seu carrinho está vazio.')
-    if (!vendedorSelecionado) return alert('Por favor, selecione o vendedor que te atendeu.')
+    if (carrinho.length === 0) return toast.error('Seu carrinho está vazio.')
+    if (!vendedorSelecionado) return toast.error('Por favor, selecione o vendedor que te atendeu.')
 
     setFinalizando(true)
     try {
@@ -237,13 +240,13 @@ export default function Home() {
       const cupomTexto = cupomAplicado ? `%0A*Cupom Aplicado:* ${cupomAplicado.codigo} (${cupomAplicado.desconto_percentual}% off)` : ''
       const mensagemWp = `*NOVO PEDIDO #${pedido.id}*%0A%0A*Cliente:* ${clienteLogado.nome}%0A*Vendedor:* ${vendedorObj?.nome || '-'}%0A*Pagamento:* ${formaPagamento}${cupomTexto}%0A%0A*Itens:*%0A${itensTexto}%0A%0A*Total:* R$ ${valorFinalComDesconto.toFixed(2)}`
 
-      alert('Pedido finalizado com sucesso e estoque atualizado!')
+      toast.success('Pedido finalizado com sucesso e estoque atualizado!')
       setCarrinho([]); setIsCarrinhoAberto(false); setVendedorSelecionado(''); setCupomAplicado(null); setCodigoCupom('')
 
       if (dadosLoja.whatsapp) {
         window.open(`https://wa.me/${dadosLoja.whatsapp}?text=${mensagemWp}`, '_blank')
       }
-    } catch (error: any) { alert(`Erro ao finalizar: ${error.message}`) }
+    } catch (error: any) { toast.error(`Erro ao finalizar: ${error.message}`) }
     setFinalizando(false)
   }
 
@@ -373,30 +376,61 @@ export default function Home() {
               })}
             </div>
 
-            {carregando ? (<p className="text-center text-gray-500">Carregando...</p>) : (
+            {/* SKELETONS DE CARREGAMENTO / LISTAGEM DE PRODUTOS */}
+            {carregando ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {produtosFiltrados.map((produto) => (
-                  <div key={produto.id} onClick={() => router.push(`/produto/${produto.id}`)} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative overflow-hidden group">
-                    
-                    <div className="absolute top-6 left-6 flex flex-col gap-1.5 z-10">
-                      {produto.is_destaque && <span className="bg-blue-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Destaque</span>}
-                      {produto.is_novo && <span className="bg-green-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Novo</span>}
-                      {produto.is_promocao && <span className="bg-red-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Promoção</span>}
-                    </div>
-
-                    <div>
-                      <div className="h-52 bg-gray-50 rounded-xl mb-4 flex items-center justify-center overflow-hidden border border-gray-50">
-                        {produto.imagem_url ? <img src={produto.imagem_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /> : <span className="text-gray-400 text-sm">Sem Imagem</span>}
-                      </div>
-                      <h2 className="text-base font-semibold text-gray-800 leading-snug line-clamp-2">{produto.nome}</h2>
-                    </div>
-                    <div className="mt-4 pt-2">
-                      <p className="text-green-600 font-extrabold text-xl">R$ {produto.preco.toFixed(2)}</p>
-                    </div>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                  <div key={n} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 animate-pulse">
+                    <div className="h-52 bg-gray-200 rounded-xl mb-4"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                    <div className="h-8 bg-gray-200 rounded w-full"></div>
                   </div>
                 ))}
               </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {produtosFiltrados.map((produto) => (
+  <div key={produto.id} onClick={() => router.push(`/produto/${produto.id}`)} className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative overflow-hidden group">
+    
+    {/* Tags de Destaque / Promoção */}
+    <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
+      {produto.is_destaque && <span className="bg-blue-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Destaque</span>}
+      {produto.is_novo && <span className="bg-green-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Novo</span>}
+      {produto.is_promocao && <span className="bg-red-600/90 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm backdrop-blur-sm">Promoção</span>}
+    </div>
+
+    <div>
+      {/* Imagem preenchendo toda a largura superior */}
+      <div className="h-56 w-full bg-gray-50 relative overflow-hidden">
+        {produto.imagem_url ? (
+          <Image 
+            src={produto.imagem_url} 
+            alt={produto.nome}
+            fill
+            sizes="(max-width: 768px) 100vw, 300px"
+            className="object-cover group-hover:scale-105 transition-transform duration-500" 
+          />
+        ) : (
+          <span className="text-gray-400 text-sm flex items-center justify-center h-full">Sem Imagem</span>
+        )}
+      </div>
+      
+      {/* Título com espaçamento interno adequado */}
+      <div className="p-4 pb-2">
+        <h2 className="text-base font-semibold text-gray-800 leading-snug line-clamp-2">{produto.nome}</h2>
+      </div>
+    </div>
+
+    {/* Preço */}
+    <div className="px-4 pb-4 pt-0">
+      <p className="text-green-600 font-extrabold text-xl">R$ {produto.preco.toFixed(2)}</p>
+    </div>
+  </div>
+))}
+              </div>
             )}
+
             {produtosFiltrados.length === 0 && !carregando && (
               <div className="col-span-full text-center py-12">
                 <p className="text-xl font-medium text-gray-700">Nenhum produto encontrado.</p>
