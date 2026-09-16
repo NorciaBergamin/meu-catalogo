@@ -22,6 +22,9 @@ export default function Home() {
   const [isCarrinhoAberto, setIsCarrinhoAberto] = useState(false)
   const [carrinhoCarregado, setCarrinhoCarregado] = useState(false)
 
+  // Estado para armazenar o pedido recém-gerado e exibir a tela de sucesso
+  const [pedidoGerado, setPedidoGerado] = useState<any>(null)
+
   // Estados de Cupom de Desconto
   const [codigoCupom, setCodigoCupom] = useState('')
   const [cupomAplicado, setCupomAplicado] = useState<any>(null)
@@ -245,24 +248,40 @@ export default function Home() {
         await supabase.from('produtos').update({ estoque: novoEstoque }).eq('id', item.produto.id)
       }
 
-      toast.success(`Pedido #${pedido.id} gerado com sucesso e estoque atualizado!`)
-      setCarrinho([]); setIsCarrinhoAberto(false); setCupomAplicado(null); setCodigoCupom('')
-    } catch (error: any) { toast.error(`Erro ao finalizar: ${error.message}`) }
+      // Salva os dados do pedido gerado para exibir a tela de sucesso
+      setPedidoGerado({
+        id: pedido.id,
+        valor_total: valorFinalComDesconto,
+        itens: [...carrinho],
+        forma_pagamento: formaPagamento
+      })
+
+      toast.success(`Pedido #${pedido.id} gerado com sucesso!`)
+      setCarrinho([]) // Esvazia o carrinho local
+      setCupomAplicado(null)
+      setCodigoCupom('')
+    } catch (error: any) { 
+      toast.error(`Erro ao finalizar: ${error.message}`) 
+    }
     setFinalizando(false)
   }
 
-  const handleEnviarWhatsAppApenas = () => {
-    if (carrinho.length === 0) return toast.error('Seu carrinho está vazio.')
+  const handleEnviarWhatsAppPedidoGerado = () => {
+    if (!pedidoGerado) return
     if (!dadosLoja.whatsapp) return toast.error('WhatsApp da loja não configurado.')
 
     const vendedorSalvo = localStorage.getItem('erp_vendedor_indicacao')
     const vendedorObj = listaVendedores.find(v => v.id === Number(vendedorSalvo))
     
-    const itensTexto = carrinho.map(i => `• ${i.quantidade}x ${i.produto.nome} (R$ ${(i.produto.preco * i.quantidade).toFixed(2)})`).join('%0A')
-    const cupomTexto = cupomAplicado ? `%0A*Cupom Aplicado:* ${cupomAplicado.codigo} (${cupomAplicado.desconto_percentual}% off)` : ''
-    const mensagemWp = `*CONSULTA DE PEDIDO*%0A%0A*Cliente:* ${clienteLogado?.nome || 'Cliente'}%0A*Vendedor:* ${vendedorObj?.nome || '-'}%0A*Pagamento:* ${formaPagamento}${cupomTexto}%0A%0A*Itens:*%0A${itensTexto}%0A%0A*Total:* R$ ${valorFinalComDesconto.toFixed(2)}`
+    const itensTexto = pedidoGerado.itens.map((i: any) => `• ${i.quantidade}x ${i.produto.nome} (R$ ${(i.produto.preco * i.quantidade).toFixed(2)})`).join('%0A')
+    const mensagemWp = `*NOVO PEDIDO #${pedidoGerado.id}*%0A%0A*Cliente:* ${clienteLogado?.nome || 'Cliente'}%0A*Vendedor:* ${vendedorObj?.nome || '-'}%0A*Pagamento:* ${pedidoGerado.forma_pagamento}%0A%0A*Itens:*%0A${itensTexto}%0A%0A*Total:* R$ ${pedidoGerado.valor_total.toFixed(2)}`
 
     window.open(`https://wa.me/${dadosLoja.whatsapp}?text=${mensagemWp}`, '_blank')
+  }
+
+  const concluirESair = () => {
+    setPedidoGerado(null)
+    setIsCarrinhoAberto(false)
   }
 
   const produtosFiltrados = produtos.filter(p => {
@@ -462,107 +481,141 @@ export default function Home() {
               <h2 className="text-xl font-bold text-gray-800">Seu Carrinho</h2>
               <button onClick={() => setIsCarrinhoAberto(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
             </div>
+            
             <div className="flex-1 overflow-y-auto p-6">
-              {carrinho.length === 0 ? (<p className="text-center text-gray-400 mt-10">Seu carrinho está vazio.</p>) : (
-                <div className="space-y-4">
-                  {carrinho.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center border-b border-gray-100 pb-4">
-                      <div className="flex-1 pr-4">
-                        <p className="font-semibold text-gray-800 leading-tight">{item.produto.nome}</p>
-                        <div className="flex items-center gap-3 mt-2">
-                          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden h-7">
-                            <button onClick={() => alterarQuantidadeItem(item.produto.id, -1)} className="px-2 bg-gray-50 font-bold">-</button>
-                            <span className="px-3 text-sm font-semibold">{item.quantidade}</span>
-                            <button onClick={() => alterarQuantidadeItem(item.produto.id, 1)} className="px-2 bg-gray-50 font-bold">+</button>
+              {/* TELA DE SUCESSO APÓS GERAR O PEDIDO */}
+              {pedidoGerado ? (
+                <div className="text-center space-y-6 my-auto py-6">
+                  <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-4xl mx-auto shadow-inner">
+                    ✓
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-gray-900">Pedido #{pedidoGerado.id} Gerado!</h3>
+                    <p className="text-sm text-gray-500 mt-1">Seu pedido foi registrado com sucesso em nosso sistema e o estoque foi atualizado.</p>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 text-left space-y-2 text-sm">
+                    <div className="flex justify-between"><span className="text-gray-500">Pagamento:</span> <strong className="text-gray-800">{pedidoGerado.forma_pagamento}</strong></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Total:</span> <strong className="text-green-600 font-extrabold">R$ {pedidoGerado.valor_total.toFixed(2)}</strong></div>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <button 
+                      type="button" 
+                      onClick={handleEnviarWhatsAppPedidoGerado} 
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md text-sm flex items-center justify-center gap-2"
+                    >
+                      💬 Enviar Pedido para o WhatsApp
+                    </button>
+
+                    <button 
+                      type="button" 
+                      onClick={concluirESair} 
+                      className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3.5 rounded-xl transition-colors text-sm"
+                    >
+                      🏠 Concluir / Fechar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* CARRINHO NORMAL */
+                carrinho.length === 0 ? (<p className="text-center text-gray-400 mt-10">Seu carrinho está vazio.</p>) : (
+                  <div className="space-y-4">
+                    {carrinho.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center border-b border-gray-100 pb-4">
+                        <div className="flex-1 pr-4">
+                          <p className="font-semibold text-gray-800 leading-tight">{item.produto.nome}</p>
+                          <div className="flex items-center gap-3 mt-2">
+                            <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden h-7">
+                              <button onClick={() => alterarQuantidadeItem(item.produto.id, -1)} className="px-2 bg-gray-50 font-bold">-</button>
+                              <span className="px-3 text-sm font-semibold">{item.quantidade}</span>
+                              <button onClick={() => alterarQuantidadeItem(item.produto.id, 1)} className="px-2 bg-gray-50 font-bold">+</button>
+                            </div>
+                            <span className="text-xs text-gray-400">x R$ {item.produto.preco.toFixed(2)}</span>
                           </div>
-                          <span className="text-xs text-gray-400">x R$ {item.produto.preco.toFixed(2)}</span>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <p className="font-bold text-green-600">R$ {(item.produto.preco * item.quantidade).toFixed(2)}</p>
+                          <button onClick={() => removerDoCarrinho(item.produto.id)} className="text-red-500 text-xs bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors">Remover</button>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <p className="font-bold text-green-600">R$ {(item.produto.preco * item.quantidade).toFixed(2)}</p>
-                        <button onClick={() => removerDoCarrinho(item.produto.id)} className="text-red-500 text-xs bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors">Remover</button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
 
-                  <div className="pt-2 pb-2">
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Cupom de Desconto</label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="text" 
-                        value={codigoCupom} 
-                        onChange={e => setCodigoCupom(e.target.value)} 
-                        placeholder="Ex: PROMO10" 
-                        className="flex-1 p-2.5 border border-gray-200 rounded-xl text-sm uppercase outline-none focus:border-blue-500 bg-gray-50 font-bold"
-                      />
-                      <button type="button" onClick={aplicarCupom} className="bg-gray-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-colors">
-                        Aplicar
-                      </button>
-                    </div>
-                    {erroCupom && <p className={`text-xs mt-1.5 font-bold ${cupomAplicado ? 'text-green-600' : 'text-red-500'}`}>{erroCupom}</p>}
-                  </div>
-
-                  <div className="pt-2 text-right border-b border-gray-100 pb-6 mb-6">
-                    {cupomAplicado && (
-                      <>
-                        <p className="text-gray-400 text-xs line-through">Subtotal: R$ {valorTotalCarrinho.toFixed(2)}</p>
-                        <p className="text-rose-600 text-xs font-bold">Desconto ({cupomAplicado.desconto_percentual}%): -R$ {valorDesconto.toFixed(2)}</p>
-                      </>
-                    )}
-                    <p className="text-gray-500 text-sm mt-1">Total do Pedido</p>
-                    <p className="text-3xl font-extrabold text-green-600">R$ {valorFinalComDesconto.toFixed(2)}</p>
-                  </div>
-
-                  {!clienteLogado ? (
-                    <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl text-center">
-                      <p className="text-blue-900 font-medium mb-4 text-sm">Identifique-se para salvar seu histórico e gerar o pedido.</p>
-                      <button onClick={() => { setIsCarrinhoAberto(false); setModalAuthAberto(true); }} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition-all">
-                        Fazer Login ou Cadastrar
-                      </button>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleFinalizarCompra} className="space-y-4 bg-gray-50 p-5 rounded-2xl border border-gray-100">
-                      <h3 className="font-bold text-gray-800 border-b border-gray-200 pb-2">Finalizar Compra</h3>
-                      <div className="bg-white p-3 rounded-xl border border-gray-200 text-sm text-gray-600">
-                        <p>Comprando como: <strong className="text-gray-900">{clienteLogado.nome}</strong></p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700">Forma de Pagamento</label>
-                        <select required value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                          {listaPagamentos.length === 0 ? <option value="Pix">Pix</option> : listaPagamentos.map(p => <option key={p.id} value={p.titulo}>{p.titulo}</option>)}
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700">Vendedor Responsável</label>
-                        {(() => {
-                          const vendedorSalvo = typeof window !== 'undefined' ? localStorage.getItem('erp_vendedor_indicacao') : null
-                          const vendedorObj = listaVendedores.find(v => v.id === Number(vendedorSalvo))
-                          return (
-                            <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 text-sm text-blue-900">
-                              <p>Atendido por: <strong className="text-blue-950">{vendedorObj?.nome || 'Vendedor Oficial da Loja'}</strong></p>
-                            </div>
-                          )
-                        })()}
-                      </div>
-
-                      <div className="flex flex-col gap-2 pt-2">
-                        <button type="button" onClick={() => setIsCarrinhoAberto(false)} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-xl transition-colors text-sm">
-                          Continuar Comprando
+                    <div className="pt-2 pb-2">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Cupom de Desconto</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          value={codigoCupom} 
+                          onChange={e => setCodigoCupom(e.target.value)} 
+                          placeholder="Ex: PROMO10" 
+                          className="flex-1 p-2.5 border border-gray-200 rounded-xl text-sm uppercase outline-none focus:border-blue-500 bg-gray-50 font-bold"
+                        />
+                        <button type="button" onClick={aplicarCupom} className="bg-gray-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-colors">
+                          Aplicar
                         </button>
+                      </div>
+                      {erroCupom && <p className={`text-xs mt-1.5 font-bold ${cupomAplicado ? 'text-green-600' : 'text-red-500'}`}>{erroCupom}</p>}
+                    </div>
+
+                    <div className="pt-2 text-right border-b border-gray-100 pb-6 mb-6">
+                      {cupomAplicado && (
+                        <>
+                          <p className="text-gray-400 text-xs line-through">Subtotal: R$ {valorTotalCarrinho.toFixed(2)}</p>
+                          <p className="text-rose-600 text-xs font-bold">Desconto ({cupomAplicado.desconto_percentual}%): -R$ {valorDesconto.toFixed(2)}</p>
+                        </>
+                      )}
+                      <p className="text-gray-500 text-sm mt-1">Total do Pedido</p>
+                      <p className="text-3xl font-extrabold text-green-600">R$ {valorFinalComDesconto.toFixed(2)}</p>
+                    </div>
+
+                    {!clienteLogado ? (
+                      <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl text-center">
+                        <p className="text-blue-900 font-medium mb-4 text-sm">Identifique-se para salvar seu histórico e gerar o pedido.</p>
+                        <button onClick={() => { setIsCarrinhoAberto(false); setModalAuthAberto(true); }} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition-all">
+                          Fazer Login ou Cadastrar
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleFinalizarCompra} className="space-y-4 bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                        <h3 className="font-bold text-gray-800 border-b border-gray-200 pb-2">Finalizar Compra</h3>
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 text-sm text-gray-600">
+                          <p>Comprando como: <strong className="text-gray-900">{clienteLogado.nome}</strong></p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-1 text-gray-700">Forma de Pagamento</label>
+                          <select required value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            {listaPagamentos.length === 0 ? <option value="Pix">Pix</option> : listaPagamentos.map(p => <option key={p.id} value={p.titulo}>{p.titulo}</option>)}
+                          </select>
+                        </div>
                         
-                        <button type="submit" disabled={finalizando} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl disabled:opacity-50 transition-all shadow-md text-sm">
-                          {finalizando ? 'Processando...' : 'Finalizar Pedido'}
-                        </button>
+                        <div>
+                          <label className="block text-sm font-medium mb-1 text-gray-700">Vendedor Responsável</label>
+                          {(() => {
+                            const vendedorSalvo = typeof window !== 'undefined' ? localStorage.getItem('erp_vendedor_indicacao') : null
+                            const vendedorObj = listaVendedores.find(v => v.id === Number(vendedorSalvo))
+                            return (
+                              <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 text-sm text-blue-900">
+                                <p>Atendido por: <strong className="text-blue-950">{vendedorObj?.nome || 'Vendedor Oficial da Loja'}</strong></p>
+                              </div>
+                            )
+                          })()}
+                        </div>
 
-                        <button type="button" onClick={handleEnviarWhatsAppApenas} disabled={finalizando} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl disabled:opacity-50 transition-all shadow-md text-sm flex items-center justify-center gap-2">
-                          💬 Enviar Pedido WhatsApp
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </div>
+                        <div className="flex flex-col gap-2 pt-2">
+                          <button type="button" onClick={() => setIsCarrinhoAberto(false)} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-xl transition-colors text-sm">
+                            Continuar Comprando
+                          </button>
+                          
+                          <button type="submit" disabled={finalizando} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl disabled:opacity-50 transition-all shadow-md text-sm">
+                            {finalizando ? 'Processando...' : 'Finalizar Pedido'}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                )
               )}
             </div>
           </div>
