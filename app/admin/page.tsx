@@ -9,7 +9,6 @@ export default function AdminPanel() {
   const [loginUser, setLoginUser] = useState('')
   const [loginSenha, setLoginSenha] = useState('')
   const [erroLogin, setErroLogin] = useState('')
-  const [abaAdmin, setAbaAdmin] = useState<'clientes' | 'pedidos' | 'relatorios' | 'vendedores'>('clientes')
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -417,35 +416,21 @@ export default function AdminPanel() {
     } catch (error: any) { setMensagem(`Erro ao gerar PDF: ${error.message}`) }
   }
 
-    if (!usuarioLogado) {
-        return (
-          <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-            <form onSubmit={handleLogin} className="bg-white p-8 rounded-3xl shadow-sm w-full max-w-sm border border-gray-100">
-              <div className="text-center mb-8"><h2 className="text-3xl font-black text-gray-900 tracking-tight">ERP Login</h2></div>
-              {erroLogin && <p className="bg-red-50 text-red-600 text-sm p-3 rounded-xl mb-6 text-center font-medium">{erroLogin}</p>}
-              <div className="space-y-4">
-                <input 
-                  type="text" 
-                  required 
-                  value={loginUser} 
-                  onChange={e => setLoginUser(e.target.value)} 
-                  className="w-full p-3.5 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-gray-50/50 text-gray-900" 
-                  placeholder="Usuário / Telefone" 
-                />
-                <input 
-                  type="password" 
-                  required 
-                  value={loginSenha} 
-                  onChange={e => setLoginSenha(e.target.value)} 
-                  className="w-full p-3.5 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-gray-50/50 text-gray-900" 
-                  placeholder="Senha" 
-                />
-                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-2xl transition-all shadow-md">Entrar no Sistema</button>
-              </div>
-            </form>
-          </main>
-        )
-      }
+  if (!usuarioLogado) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <form onSubmit={handleLogin} className="bg-white p-8 rounded-3xl shadow-sm w-full max-w-sm border border-gray-100">
+          <div className="text-center mb-8"><h2 className="text-3xl font-black text-gray-900 tracking-tight">ERP Login</h2></div>
+          {erroLogin && <p className="bg-red-50 text-red-600 text-sm p-3 rounded-xl mb-6 text-center font-medium">{erroLogin}</p>}
+          <div className="space-y-4">
+            <input type="text" required value={loginUser} onChange={e => setLoginUser(e.target.value)} className="w-full p-3.5 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-gray-50/50 text-gray-900" placeholder="Usuário / Telefone" />
+            <input type="password" required value={loginSenha} onChange={e => setLoginSenha(e.target.value)} className="w-full p-3.5 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-gray-50/50 text-gray-900" placeholder="Senha" />
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-2xl transition-all shadow-md">Entrar no Sistema</button>
+          </div>
+        </form>
+      </main>
+    )
+  }
 
   const faturamentoTotal = listaPedidos.reduce((acc, p) => acc + Number(p.valor_total), 0)
   const totalPedidosCount = listaPedidos.length
@@ -505,17 +490,11 @@ export default function AdminPanel() {
         <div className="flex flex-wrap border-b border-gray-100 mb-8 text-sm gap-1">
           {usuarioLogado.tipo === 'admin' && (
             <>
-              <button 
-                onClick={() => setAbaAdmin('vendedores')} 
-                className={`px-6 py-2.5 rounded-xl font-bold transition-all ${abaAdmin === 'vendedores' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}
-              >
-                👥 Vendedores & Links
-              </button>
               <button onClick={() => setAbaAtiva('dashboard')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'dashboard' ? 'bg-amber-50 text-amber-700' : 'text-gray-500 hover:bg-gray-50'}`}>📊 Dashboard</button>
               <button onClick={() => setAbaAtiva('produto')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'produto' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'}`}>Produtos</button>
               <button onClick={() => setAbaAtiva('banner')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'banner' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'}`}>Banners</button>
               <button onClick={() => setAbaAtiva('categoria')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'categoria' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'}`}>Categorias</button>
-              <button onClick={() => setAbaAtiva('vendedor')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'vendedor' ? 'bg-green-50 text-green-700' : 'text-gray-500 hover:bg-gray-50'}`}>Vendedores</button>
+              <button onClick={() => setAbaAtiva('vendedor')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'vendedor' ? 'bg-green-50 text-green-700' : 'text-gray-500 hover:bg-gray-50'}`}>👥 Vendedores & Links</button>
               <button onClick={() => setAbaAtiva('pagamentos')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'pagamentos' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500 hover:bg-gray-50'}`}>Pagamentos</button>
               <button onClick={() => setAbaAtiva('cupons')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'cupons' ? 'bg-rose-50 text-rose-700' : 'text-gray-500 hover:bg-gray-50'}`}>🎟️ Cupons</button>
               <button onClick={() => setAbaAtiva('minhaLoja')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'minhaLoja' ? 'bg-amber-50 text-amber-700' : 'text-gray-500 hover:bg-gray-50'}`}>🏢 Minha Loja</button>
@@ -525,63 +504,6 @@ export default function AdminPanel() {
           <button onClick={() => setAbaAtiva('pedidos')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'pedidos' ? 'bg-orange-50 text-orange-700' : 'text-gray-500 hover:bg-gray-50'}`}>Gestão de Pedidos</button>
           <button onClick={() => setAbaAtiva('relatorio')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'relatorio' ? 'bg-purple-50 text-purple-700' : 'text-gray-500 hover:bg-gray-50'}`}>Relatórios</button>
         </div>
-
-        {/* PAINEL DE GESTÃO DE LINKS PELO ADMIN */}
-        {usuarioLogado.tipo === 'admin' && abaAdmin === 'vendedores' && (
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mb-8">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="text-xl font-black text-gray-800">Links Exclusivos dos Vendedores</h3>
-                <p className="text-sm text-gray-400">Copie o link personalizado de cada vendedor e envie para eles divulgarem.</p>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase">
-                    <th className="pb-3 font-bold">Nome do Vendedor</th>
-                    <th className="pb-3 font-bold">Telefone</th>
-                    <th className="pb-3 font-bold">Link de Vendas Exclusivo</th>
-                    <th className="pb-3 text-right font-bold">Ação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {listaVendedores.map((vendedor: any) => {
-                    const linkVendedor = typeof window !== 'undefined' ? `${window.location.origin}/?vendedor=${vendedor.id}` : ''
-                    return (
-                      <tr key={vendedor.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                        <td className="py-4 font-bold text-gray-800">{vendedor.nome}</td>
-                        <td className="py-4 text-sm text-gray-600">{vendedor.telefone || '-'}</td>
-                        <td className="py-4">
-                          <input 
-                            type="text" 
-                            readOnly 
-                            value={linkVendedor} 
-                            className="bg-gray-50 border border-gray-200 text-xs px-3 py-2 rounded-lg w-full max-w-md font-mono text-gray-600 outline-none"
-                          />
-                        </td>
-                        <td className="py-4 text-right">
-                          <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(linkVendedor)
-                              setMensagem(`Link do(a) ${vendedor.nome} copiado!`)
-                            }}
-                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors shadow-sm"
-                          >
-                            📋 Copiar Link
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {listaVendedores.length === 0 && (
-                    <tr><td colSpan={4} className="p-6 text-center text-gray-400">Nenhum vendedor cadastrado.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
 
         {/* ABA DASHBOARD */}
         {abaAtiva === 'dashboard' && usuarioLogado.tipo === 'admin' && (
@@ -805,24 +727,86 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* ABA VENDEDORES */}
+        {/* ABA VENDEDORES & LINKS UNIFICADA */}
         {abaAtiva === 'vendedor' && usuarioLogado.tipo === 'admin' && (
-          <div className="max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm">
-            <form onSubmit={handleSalvarVendedor} className={`space-y-4 mb-8 p-6 rounded-2xl border ${idVendedorEdicao ? 'bg-blue-50/30 border-blue-100' : 'bg-green-50/30 border-green-100'}`}>
-              {idVendedorEdicao && <div className="text-blue-600 font-bold text-sm mb-2">Editando Vendedor</div>}
-              <div><label className="block text-sm font-medium mb-1 text-gray-700">Nome</label><input type="text" required value={nomeVendedor} onChange={e => setNomeVendedor(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none" /></div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div><label className="block text-sm font-medium mb-1 text-gray-700">Telefone</label><input type="text" required value={telefoneVendedor} onChange={e => setTelefoneVendedor(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none" /></div>
-                <div><label className="block text-sm font-medium mb-1 text-gray-700">Senha</label><input type="text" required value={senhaVendedor} onChange={e => setSenhaVendedor(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none" /></div>
-                <div><label className="block text-sm font-medium mb-1 text-gray-700">Comissão %</label><input type="number" step="0.1" required value={comissaoVendedor} onChange={e => setComissaoVendedor(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none" /></div>
+          <div className="space-y-8">
+            {/* Formulário de Cadastro / Edição */}
+            <div className="max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm">
+              <form onSubmit={handleSalvarVendedor} className={`space-y-4 mb-4 p-6 rounded-2xl border ${idVendedorEdicao ? 'bg-blue-50/30 border-blue-100' : 'bg-green-50/30 border-green-100'}`}>
+                {idVendedorEdicao && <div className="text-blue-600 font-bold text-sm mb-2">Editando Vendedor</div>}
+                <div><label className="block text-sm font-medium mb-1 text-gray-700">Nome</label><input type="text" required value={nomeVendedor} onChange={e => setNomeVendedor(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none" /></div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div><label className="block text-sm font-medium mb-1 text-gray-700">Telefone</label><input type="text" required value={telefoneVendedor} onChange={e => setTelefoneVendedor(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none" /></div>
+                  <div><label className="block text-sm font-medium mb-1 text-gray-700">Senha</label><input type="text" required value={senhaVendedor} onChange={e => setSenhaVendedor(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none" /></div>
+                  <div><label className="block text-sm font-medium mb-1 text-gray-700">Comissão %</label><input type="number" step="0.1" required value={comissaoVendedor} onChange={e => setComissaoVendedor(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none" /></div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button type="submit" className={`flex-1 text-white font-bold py-3 rounded-xl transition-all shadow-sm ${idVendedorEdicao ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}>{idVendedorEdicao ? 'Salvar Alterações' : 'Cadastrar Vendedor'}</button>
+                  {idVendedorEdicao && <button type="button" onClick={cancelarEdicaoVendedor} className="px-4 py-3 bg-gray-100 hover:bg-gray-200 font-bold rounded-xl transition-colors">Cancelar</button>}
+                </div>
+              </form>
+            </div>
+
+            {/* Tabela de Vendedores & Links Exclusivos */}
+            <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-xl font-black text-gray-800">Vendedores & Links Exclusivos</h3>
+                  <p className="text-sm text-gray-400">Gerencie os cadastros e copie os links de indicação para os vendedores.</p>
+                </div>
               </div>
-              <div className="flex gap-2 pt-2">
-                <button type="submit" className={`flex-1 text-white font-bold py-3 rounded-xl transition-all shadow-sm ${idVendedorEdicao ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}>{idVendedorEdicao ? 'Salvar Alterações' : 'Cadastrar Vendedor'}</button>
-                {idVendedorEdicao && <button type="button" onClick={cancelarEdicaoVendedor} className="px-4 py-3 bg-gray-100 hover:bg-gray-200 font-bold rounded-xl transition-colors">Cancelar</button>}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase">
+                      <th className="pb-3 font-bold">Nome</th>
+                      <th className="pb-3 font-bold">Telefone</th>
+                      <th className="pb-3 font-bold">Comissão</th>
+                      <th className="pb-3 font-bold">Link de Vendas Exclusivo</th>
+                      <th className="pb-3 text-center font-bold">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {listaVendedores.map((vendedor: any) => {
+                      const linkVendedor = typeof window !== 'undefined' ? `${window.location.origin}/?vendedor=${vendedor.id}` : ''
+                      return (
+                        <tr key={vendedor.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                          <td className="py-4 font-bold text-gray-800">{vendedor.nome}</td>
+                          <td className="py-4 text-sm text-gray-600">{vendedor.telefone || '-'}</td>
+                          <td className="py-4 text-sm font-bold text-purple-600">{vendedor.comissao_percentual}%</td>
+                          <td className="py-4">
+                            <input 
+                              type="text" 
+                              readOnly 
+                              value={linkVendedor} 
+                              className="bg-gray-50 border border-gray-200 text-xs px-3 py-2 rounded-lg w-full max-w-sm font-mono text-gray-600 outline-none"
+                            />
+                          </td>
+                          <td className="py-4 text-center">
+                            <div className="flex justify-center gap-2">
+                              <button 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(linkVendedor)
+                                  setMensagem(`Link do(a) ${vendedor.nome} copiado!`)
+                                }}
+                                className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-3 py-1.5 rounded-xl text-xs transition-colors shadow-sm"
+                              >
+                                📋 Copiar Link
+                              </button>
+                              <button onClick={() => iniciarEdicaoVendedor(vendedor)} className="bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors">Editar</button>
+                              <button onClick={() => excluirItem('pessoas', vendedor.id)} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors">Excluir</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    {listaVendedores.length === 0 && (
+                      <tr><td colSpan={5} className="p-6 text-center text-gray-400">Nenhum vendedor cadastrado.</td></tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </form>
-            <h3 className="font-bold text-gray-800 border-b border-gray-100 pb-3 mb-4">Vendedores Cadastrados</h3>
-            <ul className="space-y-3 text-sm">{listaVendedores.map(v => (<li key={v.id} className="flex justify-between items-center bg-gray-50/50 p-4 rounded-xl border border-gray-100"><span className="font-medium text-gray-800">{v.nome} ({v.telefone}) - Senha: <strong className="font-mono text-blue-600">{v.senha}</strong> - Com. <strong className="text-purple-600">{v.comissao_percentual}%</strong></span><div className="flex gap-2"><button onClick={() => iniciarEdicaoVendedor(v)} className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1 rounded-lg font-bold text-xs">Editar</button><button onClick={() => excluirItem('pessoas', v.id)} className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1 rounded-lg font-bold text-xs">Excluir</button></div></li>))}</ul>
+            </div>
           </div>
         )}
 
