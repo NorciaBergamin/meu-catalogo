@@ -9,6 +9,7 @@ export default function AdminPanel() {
   const [loginUser, setLoginUser] = useState('')
   const [loginSenha, setLoginSenha] = useState('')
   const [erroLogin, setErroLogin] = useState('')
+  const [abaAdmin, setAbaAdmin] = useState<'clientes' | 'pedidos' | 'relatorios' | 'vendedores'>('clientes')
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -437,6 +438,11 @@ export default function AdminPanel() {
   const totalClientesCount = listaClientes.length
   const estoqueBaixoCount = listaProdutos.filter(p => (p.estoque ?? 0) <= 5).length
 
+  // Link exclusivo para o caso de um vendedor logar
+  const linkExclusivoVendedor = usuarioLogado.tipo === 'vendedor' && typeof window !== 'undefined' 
+    ? `${window.location.origin}/?vendedor=${usuarioLogado.id}` 
+    : ''
+
   return (
     <main className="min-h-screen p-4 md:p-8 bg-gray-50 text-gray-900">
       <div className="max-w-[1400px] mx-auto bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100">
@@ -454,9 +460,43 @@ export default function AdminPanel() {
           </div>
         </div>
 
+        {/* SE O VENDEDOR LOGAR, EXIBE O LINK DELE DESTACADO NO TOPO */}
+        {usuarioLogado.tipo === 'vendedor' && (
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-2xl shadow-md mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+              <span className="bg-blue-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md mb-2 inline-block">Seu Link de Vendas Exclusivo</span>
+              <h3 className="text-xl font-black">Divulgue seu catálogo</h3>
+              <p className="text-blue-100 text-sm mt-1">Envie este link para seus clientes. As compras feitas por ele cairão direto para você.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+              <input 
+                type="text" 
+                readOnly 
+                value={linkExclusivoVendedor} 
+                className="bg-blue-800/60 border border-blue-400/30 text-white text-sm px-4 py-3 rounded-xl w-full sm:w-80 outline-none font-mono"
+              />
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(linkExclusivoVendedor)
+                  setMensagem('Link exclusivo copiado!')
+                }} 
+                className="bg-white hover:bg-blue-50 text-blue-700 font-bold px-6 py-3 rounded-xl text-sm transition-all shadow-sm whitespace-nowrap w-full sm:w-auto"
+              >
+                📋 Copiar Link
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap border-b border-gray-100 mb-8 text-sm gap-1">
           {usuarioLogado.tipo === 'admin' && (
             <>
+              <button 
+                onClick={() => setAbaAdmin('vendedores')} 
+                className={`px-6 py-2.5 rounded-xl font-bold transition-all ${abaAdmin === 'vendedores' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}
+              >
+                👥 Vendedores & Links
+              </button>
               <button onClick={() => setAbaAtiva('dashboard')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'dashboard' ? 'bg-amber-50 text-amber-700' : 'text-gray-500 hover:bg-gray-50'}`}>📊 Dashboard</button>
               <button onClick={() => setAbaAtiva('produto')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'produto' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'}`}>Produtos</button>
               <button onClick={() => setAbaAtiva('banner')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'banner' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'}`}>Banners</button>
@@ -471,6 +511,63 @@ export default function AdminPanel() {
           <button onClick={() => setAbaAtiva('pedidos')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'pedidos' ? 'bg-orange-50 text-orange-700' : 'text-gray-500 hover:bg-gray-50'}`}>Gestão de Pedidos</button>
           <button onClick={() => setAbaAtiva('relatorio')} className={`flex-1 py-3 px-4 font-bold rounded-xl transition-all ${abaAtiva === 'relatorio' ? 'bg-purple-50 text-purple-700' : 'text-gray-500 hover:bg-gray-50'}`}>Relatórios</button>
         </div>
+
+        {/* PAINEL DE GESTÃO DE LINKS PELO ADMIN */}
+        {usuarioLogado.tipo === 'admin' && abaAdmin === 'vendedores' && (
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mb-8">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-xl font-black text-gray-800">Links Exclusivos dos Vendedores</h3>
+                <p className="text-sm text-gray-400">Copie o link personalizado de cada vendedor e envie para eles divulgarem.</p>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase">
+                    <th className="pb-3 font-bold">Nome do Vendedor</th>
+                    <th className="pb-3 font-bold">Telefone</th>
+                    <th className="pb-3 font-bold">Link de Vendas Exclusivo</th>
+                    <th className="pb-3 text-right font-bold">Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaVendedores.map((vendedor: any) => {
+                    const linkVendedor = typeof window !== 'undefined' ? `${window.location.origin}/?vendedor=${vendedor.id}` : ''
+                    return (
+                      <tr key={vendedor.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                        <td className="py-4 font-bold text-gray-800">{vendedor.nome}</td>
+                        <td className="py-4 text-sm text-gray-600">{vendedor.telefone || '-'}</td>
+                        <td className="py-4">
+                          <input 
+                            type="text" 
+                            readOnly 
+                            value={linkVendedor} 
+                            className="bg-gray-50 border border-gray-200 text-xs px-3 py-2 rounded-lg w-full max-w-md font-mono text-gray-600 outline-none"
+                          />
+                        </td>
+                        <td className="py-4 text-right">
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(linkVendedor)
+                              setMensagem(`Link do(a) ${vendedor.nome} copiado!`)
+                            }}
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors shadow-sm"
+                          >
+                            📋 Copiar Link
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {listaVendedores.length === 0 && (
+                    <tr><td colSpan={4} className="p-6 text-center text-gray-400">Nenhum vendedor cadastrado.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* ABA DASHBOARD */}
         {abaAtiva === 'dashboard' && usuarioLogado.tipo === 'admin' && (

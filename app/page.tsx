@@ -129,6 +129,14 @@ export default function Home() {
       window.history.replaceState({}, '', '/')
     }
   }, [])
+  // Captura o ID do vendedor via link (Ex: seudominio.com/?vendedor=3)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const vendedorParam = params.get('vendedor')
+    if (vendedorParam) {
+      localStorage.setItem('erp_vendedor_indicacao', vendedorParam)
+    }
+  }, [])
 
   const efetuarLogin = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const { data } = await supabase.from('pessoas').select('*').eq('tipo', 'cliente').eq('senha', authSenha).or(`telefone.eq.${authLogin},cpf_cnpj.eq.${authLogin}`).single(); if (data) { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false) } else { toast.error('Usuário ou senha incorretos.') }; setCarregandoAuth(false) }
   const efetuarCadastro = async (e: React.FormEvent) => { e.preventDefault(); setCarregandoAuth(true); const payload = { tipo: 'cliente', tipo_pessoa: cadTipoPessoa, nome: cadNome, cpf_cnpj: cadCpfCnpj, telefone: cadTelefone, cidade: cadCidade, estado: cadEstado, senha: cadSenha, status_ativo: true }; const { data, error } = await supabase.from('pessoas').insert([payload]).select().single(); if (error) { toast.error(`Erro: ${error.message}`) } else { setClienteLogado(data); localStorage.setItem('erp_cliente_sessao', JSON.stringify(data)); setModalAuthAberto(false); toast.success('Conta criada com sucesso!') }; setCarregandoAuth(false) }
@@ -212,13 +220,15 @@ export default function Home() {
   const handleFinalizarCompra = async (e: React.FormEvent) => {
     e.preventDefault()
     if (carrinho.length === 0) return toast.error('Seu carrinho está vazio.')
-    if (!vendedorSelecionado) return toast.error('Por favor, selecione o vendedor que te atendeu.')
+
+    const vendedorSalvo = localStorage.getItem('erp_vendedor_indicacao')
+    if (!vendedorSalvo) return toast.error('Nenhum vendedor vinculado. Acesse pelo link do seu vendedor.')
 
     setFinalizando(true)
     try {
       const { data: pedido, error: erroPed } = await supabase.from('pedidos').insert([{ 
         cliente_id: clienteLogado.id, 
-        vendedor_id: parseInt(vendedorSelecionado), 
+        vendedor_id: parseInt(vendedorSalvo), 
         valor_total: valorFinalComDesconto, 
         status: 'Pendente', 
         status_pagamento: 'Aguardando Pagamento',
@@ -235,13 +245,13 @@ export default function Home() {
         await supabase.from('produtos').update({ estoque: novoEstoque }).eq('id', item.produto.id)
       }
 
-      const vendedorObj = listaVendedores.find(v => v.id === parseInt(vendedorSelecionado))
+      const vendedorObj = listaVendedores.find(v => v.id === parseInt(vendedorSalvo))
       const itensTexto = carrinho.map(i => `• ${i.quantidade}x ${i.produto.nome} (R$ ${(i.produto.preco * i.quantidade).toFixed(2)})`).join('%0A')
       const cupomTexto = cupomAplicado ? `%0A*Cupom Aplicado:* ${cupomAplicado.codigo} (${cupomAplicado.desconto_percentual}% off)` : ''
       const mensagemWp = `*NOVO PEDIDO #${pedido.id}*%0A%0A*Cliente:* ${clienteLogado.nome}%0A*Vendedor:* ${vendedorObj?.nome || '-'}%0A*Pagamento:* ${formaPagamento}${cupomTexto}%0A%0A*Itens:*%0A${itensTexto}%0A%0A*Total:* R$ ${valorFinalComDesconto.toFixed(2)}`
 
       toast.success('Pedido finalizado com sucesso e estoque atualizado!')
-      setCarrinho([]); setIsCarrinhoAberto(false); setVendedorSelecionado(''); setCupomAplicado(null); setCodigoCupom('')
+      setCarrinho([]); setIsCarrinhoAberto(false); setCupomAplicado(null); setCodigoCupom('')
 
       if (dadosLoja.whatsapp) {
         window.open(`https://wa.me/${dadosLoja.whatsapp}?text=${mensagemWp}`, '_blank')
