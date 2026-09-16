@@ -417,21 +417,35 @@ export default function AdminPanel() {
     } catch (error: any) { setMensagem(`Erro ao gerar PDF: ${error.message}`) }
   }
 
-  if (!usuarioLogado) {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <form onSubmit={handleLogin} className="bg-white p-8 rounded-3xl shadow-sm w-full max-w-sm border border-gray-100">
-          <div className="text-center mb-8"><h2 className="text-3xl font-black text-gray-900 tracking-tight">ERP Login</h2></div>
-          {erroLogin && <p className="bg-red-50 text-red-600 text-sm p-3 rounded-xl mb-6 text-center font-medium">{erroLogin}</p>}
-          <div className="space-y-4">
-            <input type="text" required value={loginUser} onChange={e => setLoginUser(e.target.value)} className="w-full p-3.5 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-gray-50/50" placeholder="Usuário / Telefone" />
-            <input type="password" required value={loginSenha} onChange={e => setLoginSenha(e.target.value)} className="w-full p-3.5 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-gray-50/50" placeholder="Senha" />
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-2xl transition-all shadow-md">Entrar no Sistema</button>
-          </div>
-        </form>
-      </main>
-    )
-  }
+    if (!usuarioLogado) {
+        return (
+          <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+            <form onSubmit={handleLogin} className="bg-white p-8 rounded-3xl shadow-sm w-full max-w-sm border border-gray-100">
+              <div className="text-center mb-8"><h2 className="text-3xl font-black text-gray-900 tracking-tight">ERP Login</h2></div>
+              {erroLogin && <p className="bg-red-50 text-red-600 text-sm p-3 rounded-xl mb-6 text-center font-medium">{erroLogin}</p>}
+              <div className="space-y-4">
+                <input 
+                  type="text" 
+                  required 
+                  value={loginUser} 
+                  onChange={e => setLoginUser(e.target.value)} 
+                  className="w-full p-3.5 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-gray-50/50 text-gray-900" 
+                  placeholder="Usuário / Telefone" 
+                />
+                <input 
+                  type="password" 
+                  required 
+                  value={loginSenha} 
+                  onChange={e => setLoginSenha(e.target.value)} 
+                  className="w-full p-3.5 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-gray-50/50 text-gray-900" 
+                  placeholder="Senha" 
+                />
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-2xl transition-all shadow-md">Entrar no Sistema</button>
+              </div>
+            </form>
+          </main>
+        )
+      }
 
   const faturamentoTotal = listaPedidos.reduce((acc, p) => acc + Number(p.valor_total), 0)
   const totalPedidosCount = listaPedidos.length
