@@ -6,7 +6,7 @@ import { Toaster } from 'sonner'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'PROACADE - Catálogo Oficial',
+  title: 'PROCADE - Catálogo Oficial',
   description: 'Catálogo e Sistema de Pedidos',
   manifest: '/manifest.json',
   themeColor: '#0d47a1',
