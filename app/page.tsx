@@ -129,7 +129,7 @@ export default function Home() {
       window.history.replaceState({}, '', '/')
     }
   }, [])
-  // Captura o ID do vendedor via link (Ex: seudominio.com/?vendedor=3)
+  // Captura e salva o vendedor automaticamente caso venha por link de indicação
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const vendedorParam = params.get('vendedor')
@@ -222,13 +222,13 @@ export default function Home() {
     if (carrinho.length === 0) return toast.error('Seu carrinho está vazio.')
 
     const vendedorSalvo = localStorage.getItem('erp_vendedor_indicacao')
-    if (!vendedorSalvo) return toast.error('Nenhum vendedor vinculado. Acesse pelo link do seu vendedor.')
+    const vendedorIdFinal = vendedorSalvo ? parseInt(vendedorSalvo) : (listaVendedores[0]?.id || 1)
 
     setFinalizando(true)
     try {
       const { data: pedido, error: erroPed } = await supabase.from('pedidos').insert([{ 
         cliente_id: clienteLogado.id, 
-        vendedor_id: parseInt(vendedorSalvo), 
+        vendedor_id: vendedorIdFinal, 
         valor_total: valorFinalComDesconto, 
         status: 'Pendente', 
         status_pagamento: 'Aguardando Pagamento',
@@ -245,7 +245,7 @@ export default function Home() {
         await supabase.from('produtos').update({ estoque: novoEstoque }).eq('id', item.produto.id)
       }
 
-      const vendedorObj = listaVendedores.find(v => v.id === parseInt(vendedorSalvo))
+      const vendedorObj = listaVendedores.find(v => v.id === vendedorIdFinal)
       const itensTexto = carrinho.map(i => `• ${i.quantidade}x ${i.produto.nome} (R$ ${(i.produto.preco * i.quantidade).toFixed(2)})`).join('%0A')
       const cupomTexto = cupomAplicado ? `%0A*Cupom Aplicado:* ${cupomAplicado.codigo} (${cupomAplicado.desconto_percentual}% off)` : ''
       const mensagemWp = `*NOVO PEDIDO #${pedido.id}*%0A%0A*Cliente:* ${clienteLogado.nome}%0A*Vendedor:* ${vendedorObj?.nome || '-'}%0A*Pagamento:* ${formaPagamento}${cupomTexto}%0A%0A*Itens:*%0A${itensTexto}%0A%0A*Total:* R$ ${valorFinalComDesconto.toFixed(2)}`
@@ -532,12 +532,17 @@ export default function Home() {
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-700">Vendedor Responsável</label>
-                        <select required value={vendedorSelecionado} onChange={e => setVendedorSelecionado(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                          <option value="">Selecione quem te atendeu...</option>
-                          {listaVendedores.map(v => (<option key={v.id} value={v.id}>{v.nome}</option>))}
-                        </select>
-                      </div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700">Vendedor Responsável</label>
+                      {(() => {
+                        const vendedorSalvo = typeof window !== 'undefined' ? localStorage.getItem('erp_vendedor_indicacao') : null
+                        const vendedorObj = listaVendedores.find(v => v.id === Number(vendedorSalvo))
+                        return (
+                          <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 text-sm text-blue-900">
+                            <p>Atendido por: <strong className="text-blue-950">{vendedorObj?.nome || 'Vendedor Oficial da Loja'}</strong></p>
+                          </div>
+                        )
+                      })()}
+                    </div>
 
                       <div className="flex flex-col gap-2 pt-2">
                         <button type="button" onClick={() => setIsCarrinhoAberto(false)} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-xl transition-colors">

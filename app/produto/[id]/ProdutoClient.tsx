@@ -16,9 +16,25 @@ export default function ProdutoClient({ id }: { id: string }) {
   const [quantidade, setQuantidade] = useState(1)
   const [fotoAtivaIndex, setFotoAtivaIndex] = useState(0)
   const [dadosLoja, setDadosLoja] = useState({ nome: '', whatsapp: '', logo: '' })
+  const [linkHome, setLinkHome] = useState('/')
   
   // Estado para o Zoom / Lightbox
   const [isZoomAberto, setIsZoomAberto] = useState(false)
+
+  useEffect(() => {
+    // Captura o vendedor da URL e salva no localStorage
+    const params = new URLSearchParams(window.location.search)
+    const vendedorParam = params.get('vendedor')
+    if (vendedorParam) {
+      localStorage.setItem('erp_vendedor_indicacao', vendedorParam)
+    }
+
+    // Configura o link de retorno para a home mantendo o vendedor ativo
+    const storedVendedor = localStorage.getItem('erp_vendedor_indicacao')
+    if (storedVendedor) {
+      setLinkHome(`/?vendedor=${storedVendedor}`)
+    }
+  }, [id])
 
   useEffect(() => {
     async function carregarProduto() {
@@ -59,7 +75,7 @@ export default function ProdutoClient({ id }: { id: string }) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <p className="text-xl font-bold text-gray-800 mb-4">Produto não encontrado.</p>
-        <Link href="/" className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold">Voltar ao Catálogo</Link>
+        <Link href={linkHome} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold">Voltar ao Catálogo</Link>
       </div>
     )
   }
@@ -89,10 +105,13 @@ export default function ProdutoClient({ id }: { id: string }) {
       novoCarrinho = [...carrinhoAtual, { produto, quantidade }]
     }
     localStorage.setItem('erp_carrinho_sessao', JSON.stringify(novoCarrinho))
-    router.push('/?abrirCarrinho=true')
+    
+    // Redireciona para a home mantendo o vendedor e abrindo o carrinho
+    const storedVendedor = localStorage.getItem('erp_vendedor_indicacao')
+    const cartUrl = storedVendedor ? `/?vendedor=${storedVendedor}&abrirCarrinho=true` : '/?abrirCarrinho=true'
+    router.push(cartUrl)
   }
 
-  // Função para abrir o menu nativo de compartilhamento (WhatsApp, Instagram, Facebook, etc.)
   const handleCompartilharGeral = async () => {
     const shareData = {
       title: produto.nome,
@@ -107,13 +126,11 @@ export default function ProdutoClient({ id }: { id: string }) {
         console.log('Compartilhamento cancelado ou não suportado', err)
       }
     } else {
-      // Fallback para computadores que não suportam navigator.share
       navigator.clipboard.writeText(window.location.href)
       toast.success('Link do produto copiado para a área de transferência!')
     }
   }
 
-  // Função para compartilhar direto no WhatsApp
   const handleCompartilharWhatsApp = () => {
     const texto = encodeURIComponent(`Olá! Gostaria de mais informações sobre este produto: *${produto.nome}* - R$ ${Number(produto.preco).toFixed(2)}\n\nVeja aqui: ${window.location.href}`)
     window.open(`https://wa.me/?text=${texto}`, '_blank')
@@ -122,15 +139,15 @@ export default function ProdutoClient({ id }: { id: string }) {
   return (
     <main className="min-h-screen bg-white text-gray-900 pb-20">
       <header className="border-b border-gray-100 py-4 px-6 md:px-12 flex justify-between items-center max-w-7xl mx-auto">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href={linkHome} className="flex items-center gap-3">
           {dadosLoja.logo ? <img src={dadosLoja.logo} alt={dadosLoja.nome} className="h-10 object-contain" /> : <h1 className="text-2xl font-black text-blue-600 tracking-tighter">{dadosLoja.nome}</h1>}
         </Link>
-        <Link href="/" className="text-sm font-bold text-blue-600 hover:underline">← Voltar para a Loja</Link>
+        <Link href={linkHome} className="text-sm font-bold text-blue-600 hover:underline">← Voltar para a Loja</Link>
       </header>
 
       <div className="max-w-7xl mx-auto px-6 md:px-12 pt-6">
         <div className="text-xs text-gray-400 mb-8 flex items-center gap-2">
-          <Link href="/" className="hover:text-blue-600">🏠 Início</Link>
+          <Link href={linkHome} className="hover:text-blue-600">🏠 Início</Link>
           <span>/</span>
           <span>{produto.categoria || 'Geral'}</span>
           <span>/</span>
@@ -149,7 +166,6 @@ export default function ProdutoClient({ id }: { id: string }) {
               </div>
             )}
 
-            {/* FOTO PRINCIPAL COM ZOOM AO CLICAR */}
             <div 
               onClick={() => setIsZoomAberto(true)} 
               className="flex-1 bg-gray-50 rounded-3xl border border-gray-100 flex items-center justify-center min-h-[420px] md:min-h-[500px] relative overflow-hidden shadow-sm cursor-zoom-in group"
@@ -199,7 +215,6 @@ export default function ProdutoClient({ id }: { id: string }) {
                 🛒 Adicionar ao Carrinho
               </button>
 
-              {/* BOTÕES DE COMPARTILHAMENTO */}
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={handleCompartilharGeral} 
@@ -250,31 +265,35 @@ export default function ProdutoClient({ id }: { id: string }) {
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {produtosRelacionados.map((item) => (
-                <div key={item.id} onClick={() => router.push(`/produto/${item.id}`)} className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative overflow-hidden group">
-                  <div>
-                    <div className="h-52 w-full bg-gray-50 relative overflow-hidden">
-                      {item.imagem_url ? (
-                        <Image 
-                          src={item.imagem_url} 
-                          alt={item.nome}
-                          fill
-                          sizes="(max-width: 768px) 100vw, 300px"
-                          className="object-cover group-hover:scale-105 transition-transform duration-500" 
-                        />
-                      ) : (
-                        <span className="text-gray-400 text-sm flex items-center justify-center h-full">Sem Imagem</span>
-                      )}
+              {produtosRelacionados.map((item) => {
+                const storedVendedor = typeof window !== 'undefined' ? localStorage.getItem('erp_vendedor_indicacao') : null
+                const relLink = storedVendedor ? `/produto/${item.id}?vendedor=${storedVendedor}` : `/produto/${item.id}`
+                return (
+                  <div key={item.id} onClick={() => router.push(relLink)} className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative overflow-hidden group">
+                    <div>
+                      <div className="h-52 w-full bg-gray-50 relative overflow-hidden">
+                        {item.imagem_url ? (
+                          <Image 
+                            src={item.imagem_url} 
+                            alt={item.nome}
+                            fill
+                            sizes="(max-width: 768px) 100vw, 300px"
+                            className="object-cover group-hover:scale-105 transition-transform duration-500" 
+                          />
+                        ) : (
+                          <span className="text-gray-400 text-sm flex items-center justify-center h-full">Sem Imagem</span>
+                        )}
+                      </div>
+                      <div className="p-4 pb-2">
+                        <h4 className="text-base font-semibold text-gray-800 leading-snug line-clamp-2">{item.nome}</h4>
+                      </div>
                     </div>
-                    <div className="p-4 pb-2">
-                      <h4 className="text-base font-semibold text-gray-800 leading-snug line-clamp-2">{item.nome}</h4>
+                    <div className="px-4 pb-4 pt-0">
+                      <p className="text-green-600 font-extrabold text-xl">R$ {item.preco.toFixed(2)}</p>
                     </div>
                   </div>
-                  <div className="px-4 pb-4 pt-0">
-                    <p className="text-green-600 font-extrabold text-xl">R$ {item.preco.toFixed(2)}</p>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
